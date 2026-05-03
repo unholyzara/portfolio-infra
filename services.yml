@@ -1,0 +1,31 @@
+services:
+  - name: frontend
+    type: frontend
+    repo_description: "Portfolio frontend — Angular"
+    ecr: true
+    public: true
+
+  - name: admin
+    type: admin
+    repo_description: "Portfolio admin — Django backoffice"
+    ecr: true
+    public: true
+    ip_whitelist: true
+
+  - name: service-a
+    type: backend
+    repo_description: "Portfolio service A — FastAPI"
+    ecr: true
+    public: false
+
+  - name: service-b
+    type: backend
+    repo_description: "Portfolio service B — Django"
+    ecr: true
+    public: false
+
+  - name: postgres
+    type: database
+    custom_image: postgres:16
+    ecr: false
+    public: false
