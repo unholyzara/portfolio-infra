@@ -12,20 +12,38 @@ services:
     public: true
     ip_whitelist: true
 
-  - name: service-a
-    type: backend
-    repo_description: "Portfolio service A — FastAPI"
-    ecr: true
-    public: false
-
-  - name: service-b
-    type: backend
-    repo_description: "Portfolio service B — Django"
-    ecr: true
-    public: false
-
   - name: postgres
     type: database
     custom_image: postgres:16
     ecr: false
+    public: false
+
+  - name: accademic
+    type: backend
+    repo_description: "Portfolio Accademic service — Django"
+    ecr: true
+    public: false
+
+  - name: work
+    type: backend
+    repo_description: "Portfolio Work service — Django"
+    ecr: true
+    public: false
+
+  - name: persona
+    type: backend
+    repo_description: "Portfolio Persona service — Django"
+    ecr: true
+    public: false
+
+  - name: projects
+    type: backend
+    repo_description: "Portfolio Projects service — Django"
+    ecr: true
+    public: false
+
+  - name: cv
+    type: backend
+    repo_description: "Portfolio CV service — FastAPI"
+    ecr: true
     public: false
