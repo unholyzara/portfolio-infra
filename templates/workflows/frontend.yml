@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        type: choice
+        options: [beta, prd]
+        default: beta
+        required: true
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      image_tag: ${{ steps.build.outputs.image_tag }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Build and push
+        id: build
+        run: |
+          IMAGE_TAG="${{ github.ref_name }}-${{ github.sha }}"
+          aws ecr get-login-password --region ${{ vars.AWS_REGION }} | \
+            docker login --username AWS --password-stdin ${{ secrets.ECR_REPO_URL }}
+          docker build \
+            --build-arg ENVIRONMENT=${{ inputs.environment }} \
+            -t ${{ secrets.ECR_REPO_URL }}:${IMAGE_TAG} .
+          docker push ${{ secrets.ECR_REPO_URL }}:${IMAGE_TAG}
+          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger deploy
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.INFRA_REPO_TOKEN }}
+          script: |
+            await github.rest.repos.createDispatchEvent({
+              owner: context.repo.owner,
+              repo: 'portfolio-infra',
+              event_type: 'deploy-service',
+              client_payload: {
+                service: '{{SERVICE_NAME}}',
+                environment: '${{ inputs.environment }}',
+                image_tag: '${{ needs.build-and-push.outputs.image_tag }}'
+              }
+            })
