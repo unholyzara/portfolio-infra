@@ -4,10 +4,6 @@ locals {
 
   ecr_services = { for s in local.services : s.name => s if s.ecr }
 
-  repo_services = { for s in local.services : s.name => s
-    if s.ecr && !try(s.custom_image != null, false)
-  }
-
   github_org = "unholyzara"
   aws_region = "eu-south-1"
 }

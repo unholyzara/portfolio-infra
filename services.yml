@@ -3,47 +3,61 @@ services:
     type: frontend
     repo_description: "Portfolio frontend — Angular"
     ecr: true
-    public: true
+    deployable: true
+    visibility: public
 
   - name: admin
     type: admin
     repo_description: "Portfolio admin — Django backoffice"
     ecr: true
-    public: true
+    deployable: true
+    visibility: public
     ip_whitelist: true
 
   - name: postgres
     type: database
     custom_image: postgres:16
     ecr: false
-    public: false
+    deployable: false
 
   - name: accademic
     type: backend
     repo_description: "Portfolio Accademic service — Django"
     ecr: true
-    public: false
+    deployable: true
+    visibility: public
 
   - name: work
     type: backend
     repo_description: "Portfolio Work service — Django"
     ecr: true
-    public: false
+    deployable: true
+    visibility: public
 
   - name: persona
     type: backend
     repo_description: "Portfolio Persona service — Django"
     ecr: true
-    public: false
+    deployable: true
+    visibility: public
 
   - name: projects
     type: backend
     repo_description: "Portfolio Projects service — Django"
     ecr: true
-    public: false
+    deployable: true
+    visibility: public
 
   - name: cv
     type: backend
     repo_description: "Portfolio CV service — FastAPI"
     ecr: true
-    public: false
+    deployable: true
+    visibility: public
+
+  - name: orchestrator
+    type: orchestrator
+    repo_description: "Portfolio orchestrator — Docker Compose, nginx, scripts for EC2 and local development"
+    ecr: false
+    deployable: false
+    visibility: public
