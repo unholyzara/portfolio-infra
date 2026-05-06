@@ -44,4 +44,7 @@ CRON
 
 cd /home/deploy/app
 sudo -u deploy docker compose pull
+aws secretsmanager get-secret-value \
+  --secret-id /portfolio/prd/postgres/root-password \
+  --query SecretString --output text >> /home/deploy/app/.env
 sudo -u deploy docker compose up -d
