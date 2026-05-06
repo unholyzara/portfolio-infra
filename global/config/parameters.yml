@@ -1,0 +1,7 @@
+parameters:
+  - name: secret-key
+    type: string
+  - name: db-password
+    type: string
+  - name: root-password
+    type: string
