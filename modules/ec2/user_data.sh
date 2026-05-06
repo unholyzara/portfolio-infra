@@ -45,9 +45,10 @@ CRON
 cd /home/deploy/app
 sudo -u deploy docker compose pull
 
-aws secretsmanager get-secret-value \
-  --secret-id /portfolio/${environment}/postgres \
-  --query SecretString \
-  --output text | jq -r '"POSTGRES_ROOT_PASSWORD=" + .root_password' >> /home/deploy/app/.env
+aws ssm get-parameter \
+  --name "portfolio-${environment}-root-password" \
+  --with-decryption \
+  --query "Parameter.Value" \
+  --output text | sed 's/^/POSTGRES_ROOT_PASSWORD=/' >> /home/deploy/app/.env
 
 sudo -u deploy docker compose up -d
