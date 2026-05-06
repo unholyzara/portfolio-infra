@@ -1,3 +1,6 @@
+environments:
+  - name: beta
+  - name : prd
 services:
   - name: frontend
     type: frontend
