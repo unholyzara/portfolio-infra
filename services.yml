@@ -5,6 +5,7 @@ services:
     ecr: true
     deployable: true
     visibility: public
+    needs_sm: false
 
   - name: admin
     type: admin
@@ -13,12 +14,14 @@ services:
     deployable: true
     visibility: public
     ip_whitelist: true
+    needs_sm: true
 
   - name: postgres
     type: database
     custom_image: postgres:16
     ecr: false
     deployable: false
+    needs_sm: true
 
   - name: accademic
     type: backend
@@ -26,6 +29,7 @@ services:
     ecr: true
     deployable: true
     visibility: public
+    needs_sm: true
 
   - name: work
     type: backend
@@ -33,6 +37,7 @@ services:
     ecr: true
     deployable: true
     visibility: public
+    needs_sm: true
 
   - name: persona
     type: backend
@@ -40,6 +45,7 @@ services:
     ecr: true
     deployable: true
     visibility: public
+    needs_sm: true
 
   - name: projects
     type: backend
@@ -47,13 +53,7 @@ services:
     ecr: true
     deployable: true
     visibility: public
-
-  - name: cv
-    type: backend
-    repo_description: "Portfolio CV service — FastAPI"
-    ecr: true
-    deployable: true
-    visibility: public
+    needs_sm: true
 
   - name: orchestrator
     type: orchestrator
@@ -61,3 +61,5 @@ services:
     ecr: false
     deployable: false
     visibility: public
+
+    needs_sm: false
