@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       service:
-        description: "Service name (e.g. service-b)"
+        description: "Service name"
         type: string
         required: true
       environment:
@@ -16,6 +16,10 @@ on:
         description: "Image tag to deploy (e.g. main-abc1234)"
         type: string
         required: true
+      run_migrations:
+        description: "Run database migrations before starting the container"
+        type: boolean
+        default: false
   repository_dispatch:
     types: [deploy-service]
 
@@ -31,13 +35,15 @@ jobs:
         id: inputs
         run: |
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            echo "service=${{ github.event.client_payload.service }}"         >> $GITHUB_OUTPUT
-            echo "environment=${{ github.event.client_payload.environment }}" >> $GITHUB_OUTPUT
-            echo "image_tag=${{ github.event.client_payload.image_tag }}"     >> $GITHUB_OUTPUT
+            echo "service=${{ github.event.client_payload.service }}"                   >> $GITHUB_OUTPUT
+            echo "environment=${{ github.event.client_payload.environment }}"           >> $GITHUB_OUTPUT
+            echo "image_tag=${{ github.event.client_payload.image_tag }}"               >> $GITHUB_OUTPUT
+            echo "run_migrations=${{ github.event.client_payload.run_migrations }}"     >> $GITHUB_OUTPUT
           else
-            echo "service=${{ inputs.service }}"         >> $GITHUB_OUTPUT
-            echo "environment=${{ inputs.environment }}" >> $GITHUB_OUTPUT
-            echo "image_tag=${{ inputs.image_tag }}"     >> $GITHUB_OUTPUT
+            echo "service=${{ inputs.service }}"                 >> $GITHUB_OUTPUT
+            echo "environment=${{ inputs.environment }}"         >> $GITHUB_OUTPUT
+            echo "image_tag=${{ inputs.image_tag }}"             >> $GITHUB_OUTPUT
+            echo "run_migrations=${{ inputs.run_migrations }}"   >> $GITHUB_OUTPUT
           fi
 
       - name: Configure AWS credentials
@@ -61,16 +67,26 @@ jobs:
         run: |
           SERVICE="${{ steps.inputs.outputs.service }}"
           IMAGE_TAG="${{ steps.inputs.outputs.image_tag }}"
+          RUN_MIGRATIONS="${{ steps.inputs.outputs.run_migrations }}"
           ENV_VAR=$(echo "${SERVICE^^}_TAG" | tr '-' '_')
+
+          COMMANDS="[
+            'cd /home/deploy/app',
+            'sed -i \"s|^${ENV_VAR}=.*|${ENV_VAR}=${IMAGE_TAG}|\" .env',
+            'docker compose pull ${SERVICE}'"
+
+          if [ "${RUN_MIGRATIONS}" = "true" ]; then
+            COMMANDS="${COMMANDS},
+            'docker compose run --rm ${SERVICE} python manage.py migrate'"
+          fi
+
+          COMMANDS="${COMMANDS},
+            'docker compose up -d ${SERVICE}'
+          ]"
 
           aws ssm send-command \
             --instance-ids "${{ steps.ec2.outputs.instance_id }}" \
             --document-name "AWS-RunShellScript" \
-            --parameters commands="[
-              'cd /home/deploy/app',
-              'sed -i \"s|^${ENV_VAR}=.*|${ENV_VAR}=${IMAGE_TAG}|\" .env',
-              'docker compose pull ${SERVICE}',
-              'docker compose up -d ${SERVICE}'
-            ]" \
+            --parameters commands="${COMMANDS}" \
             --comment "Deploy ${SERVICE}:${IMAGE_TAG} to ${{ steps.inputs.outputs.environment }}" \
             --output text

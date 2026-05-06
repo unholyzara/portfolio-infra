@@ -9,6 +9,10 @@ on:
         options: [beta, prd]
         default: beta
         required: true
+      run_migrations:
+        description: "Run database migrations before starting the container"
+        type: boolean
+        default: false
 
 jobs:
   build-and-push:
@@ -55,6 +59,7 @@ jobs:
               client_payload: {
                 service: '{{SERVICE_NAME}}',
                 environment: '${{ inputs.environment }}',
-                image_tag: '${{ needs.build-and-push.outputs.image_tag }}'
+                image_tag: '${{ needs.build-and-push.outputs.image_tag }}',
+                run_migrations: ${{ inputs.run_migrations }}
               }
             })
