@@ -69,11 +69,13 @@ resource "aws_iam_role_policy" "ec2" {
         Resource = "*"
       },
       {
-        Effect = "Allow"
+        Effect = "Allow",
         Action = [
-          "secretsmanager:GetSecretValue"
-        ]
-        Resource = "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:/portfolio/${var.environment}/*"
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:GetParametersByPath"
+        ],
+        Resource = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/portfolio/${var.environment}/*"
       }
     ]
   })

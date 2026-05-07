@@ -31,19 +31,28 @@ jobs:
       contents: read
 
     steps:
+      - name: Checkout portfolio-infra
+        uses: actions/checkout@v4
+
+      - name: Checkout portfolio-orchestrator
+        uses: actions/checkout@v4
+        with:
+          repository: unholyzara/portfolio-orchestrator
+          path: orchestrator
+
       - name: Resolve inputs
         id: inputs
         run: |
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            echo "service=${{ github.event.client_payload.service }}"                   >> $GITHUB_OUTPUT
-            echo "environment=${{ github.event.client_payload.environment }}"           >> $GITHUB_OUTPUT
-            echo "image_tag=${{ github.event.client_payload.image_tag }}"               >> $GITHUB_OUTPUT
-            echo "run_migrations=${{ github.event.client_payload.run_migrations }}"     >> $GITHUB_OUTPUT
+            echo "service=${{ github.event.client_payload.service }}"                 >> $GITHUB_OUTPUT
+            echo "environment=${{ github.event.client_payload.environment }}"         >> $GITHUB_OUTPUT
+            echo "image_tag=${{ github.event.client_payload.image_tag }}"             >> $GITHUB_OUTPUT
+            echo "run_migrations=${{ github.event.client_payload.run_migrations }}"   >> $GITHUB_OUTPUT
           else
-            echo "service=${{ inputs.service }}"                 >> $GITHUB_OUTPUT
-            echo "environment=${{ inputs.environment }}"         >> $GITHUB_OUTPUT
-            echo "image_tag=${{ inputs.image_tag }}"             >> $GITHUB_OUTPUT
-            echo "run_migrations=${{ inputs.run_migrations }}"   >> $GITHUB_OUTPUT
+            echo "service=${{ inputs.service }}"               >> $GITHUB_OUTPUT
+            echo "environment=${{ inputs.environment }}"       >> $GITHUB_OUTPUT
+            echo "image_tag=${{ inputs.image_tag }}"           >> $GITHUB_OUTPUT
+            echo "run_migrations=${{ inputs.run_migrations }}" >> $GITHUB_OUTPUT
           fi
 
       - name: Configure AWS credentials
@@ -63,30 +72,39 @@ jobs:
             --output text)
           echo "instance_id=${INSTANCE_ID}" >> $GITHUB_OUTPUT
 
-      - name: Deploy via SSM
+      - name: Inject secrets and deploy via SSM
         run: |
           SERVICE="${{ steps.inputs.outputs.service }}"
           IMAGE_TAG="${{ steps.inputs.outputs.image_tag }}"
+          ENVIRONMENT="${{ steps.inputs.outputs.environment }}"
           RUN_MIGRATIONS="${{ steps.inputs.outputs.run_migrations }}"
           ENV_VAR=$(echo "${SERVICE^^}_TAG" | tr '-' '_')
+          SECRETS_FILE="orchestrator/secrets/${SERVICE}/${ENVIRONMENT}.yml"
+
+          # Build inject commands from secrets yml if it exists
+          INJECT_COMMANDS=""
+          if [ -f "${SECRETS_FILE}" ]; then
+            while IFS=': ' read -r env_var ssm_path; do
+              [ -z "${env_var}" ] && continue
+              INJECT_COMMANDS="${INJECT_COMMANDS},'VALUE=\$(aws ssm get-parameter --name ${ssm_path} --with-decryption --query Parameter.Value --output text) && sed -i \"s|^${env_var}=.*|${env_var}=\$VALUE|\" .env || echo \"${env_var}=\$VALUE\" >> .env'"
+            done < "${SECRETS_FILE}"
+          fi
 
           COMMANDS="[
             'cd /home/deploy/app',
-            'sed -i \"s|^${ENV_VAR}=.*|${ENV_VAR}=${IMAGE_TAG}|\" .env',
+            'sed -i \"s|^${ENV_VAR}=.*|${ENV_VAR}=${IMAGE_TAG}|\" .env'
+            ${INJECT_COMMANDS},
             'docker compose pull ${SERVICE}'"
 
           if [ "${RUN_MIGRATIONS}" = "true" ]; then
-            COMMANDS="${COMMANDS},
-            'docker compose run --rm ${SERVICE} python manage.py migrate'"
+            COMMANDS="${COMMANDS},'docker compose run --rm ${SERVICE} python manage.py migrate'"
           fi
 
-          COMMANDS="${COMMANDS},
-            'docker compose up -d ${SERVICE}'
-          ]"
+          COMMANDS="${COMMANDS},'docker compose up -d ${SERVICE}']"
 
           aws ssm send-command \
             --instance-ids "${{ steps.ec2.outputs.instance_id }}" \
             --document-name "AWS-RunShellScript" \
             --parameters commands="${COMMANDS}" \
-            --comment "Deploy ${SERVICE}:${IMAGE_TAG} to ${{ steps.inputs.outputs.environment }}" \
+            --comment "Deploy ${SERVICE}:${IMAGE_TAG} to ${ENVIRONMENT}" \
             --output text

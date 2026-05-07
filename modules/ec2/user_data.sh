@@ -2,7 +2,7 @@
 set -euo pipefail
 
 dnf update -y
-dnf install -y docker git jq
+dnf install -y docker git
 
 systemctl enable docker
 systemctl start docker
@@ -44,11 +44,4 @@ CRON
 
 cd /home/deploy/app
 sudo -u deploy docker compose pull
-
-aws ssm get-parameter \
-  --name "portfolio-${environment}-root-password" \
-  --with-decryption \
-  --query "Parameter.Value" \
-  --output text | sed 's/^/POSTGRES_ROOT_PASSWORD=/' >> /home/deploy/app/.env
-
 sudo -u deploy docker compose up -d
