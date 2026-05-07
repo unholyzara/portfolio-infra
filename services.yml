@@ -51,6 +51,13 @@ services:
     deployable: true
     visibility: public
 
+  - name: cv
+    type: backend
+    repo_description: "Portfolio CV service — Django"
+    ecr: true
+    deployable: true
+    visibility: public
+
   - name: orchestrator
     type: orchestrator
     repo_description: "Portfolio orchestrator — Docker Compose, nginx, scripts for EC2 and local development"
