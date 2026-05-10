@@ -3,4 +3,8 @@ resource "aws_ssm_parameter" "parameter" {
 
   name = "/portfolio/${each.value.environment}/${each.value.parameter.name}"
   type = each.value.type
+
+  tags = {
+    Env = each.value.environment
+  }
 }
