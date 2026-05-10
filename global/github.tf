@@ -24,7 +24,15 @@ resource "github_repository" "service" {
   name        = "portfolio-${each.key}"
   description = each.value.repo_description
   visibility  = each.value.visibility
-  auto_init   = true
+  auto_init   = try(each.value.template_repository, null) == null ? true : false
+
+  dynamic "template" {
+    for_each = try(each.value.template_repository, null) != null ? [1] : []
+    content {
+      owner      = local.github_org
+      repository = each.value.template_repository
+    }
+  }
 }
 
 resource "github_branch_default" "service" {
