@@ -2,40 +2,22 @@ environments:
   - name: beta
   - name : prd
 services:
-  - name: frontend
-    type: frontend
-    repo_description: "Portfolio frontend — Angular"
-    ecr: true
-    deployable: true
-    visibility: public
+  # - name: frontend
+  #   type: frontend
+  #   repo_description: "Portfolio frontend — Angular"
+  #   ecr: true
+  #   deployable: true
+  #   visibility: public
+  #   template_repository: null
 
-  - name: admin
-    type: admin
-    repo_description: "Portfolio admin — Django backoffice"
-    ecr: true
-    deployable: true
-    visibility: public
-    ip_whitelist: true
-
-  - name: postgres
-    type: database
-    custom_image: postgres:16
-    ecr: false
-    deployable: false
-
-  - name: accademic
-    type: backend
-    repo_description: "Portfolio Accademic service — Django"
-    ecr: true
-    deployable: true
-    visibility: public
-
-  - name: work
-    type: backend
-    repo_description: "Portfolio Work service — Django"
-    ecr: true
-    deployable: true
-    visibility: public
+  # - name: admin
+  #   type: admin
+  #   repo_description: "Portfolio admin — Django backoffice"
+  #   ecr: true
+  #   deployable: true
+  #   visibility: public
+  #   ip_whitelist: true
+  #   template_repository: null
 
   - name: persona
     type: backend
@@ -43,20 +25,45 @@ services:
     ecr: true
     deployable: true
     visibility: public
+    template_repository: portfolio-django-template
 
-  - name: projects
-    type: backend
-    repo_description: "Portfolio Projects service — Django"
-    ecr: true
-    deployable: true
-    visibility: public
+  # - name: accademic
+  #   type: backend
+  #   repo_description: "Portfolio Accademic service — Django"
+  #   ecr: true
+  #   deployable: true
+  #   visibility: public
+  #   template_repository: portfolio-django-template
 
-  - name: cv
-    type: backend
-    repo_description: "Portfolio CV service — Django"
-    ecr: true
-    deployable: true
-    visibility: public
+  # - name: work
+  #   type: backend
+  #   repo_description: "Portfolio Work service — Django"
+  #   ecr: true
+  #   deployable: true
+  #   visibility: public
+  #   template_repository: portfolio-django-template
+
+  # - name: projects
+  #   type: backend
+  #   repo_description: "Portfolio Projects service — Django"
+  #   ecr: true
+  #   deployable: true
+  #   visibility: public
+  #   template_repository: portfolio-django-template
+
+  # - name: cv
+  #   type: backend
+  #   repo_description: "Portfolio CV service — Django"
+  #   ecr: true
+  #   deployable: true
+  #   visibility: public
+  #   template_repository: portfolio-django-template
+
+  - name: postgres
+    type: database
+    custom_image: postgres:16
+    ecr: false
+    deployable: false
 
   - name: orchestrator
     type: orchestrator
