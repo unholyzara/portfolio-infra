@@ -1,7 +1,7 @@
 locals {
   services_file = yamldecode(file("${path.module}/../services.yml"))
-  services      = services_file["services"]
-  environments  = services_file["environments"]
+  services      = local.services_file["services"]
+  environments  = local.services_file["environments"]
 
   services_map = { for s in local.services : s.name => s }
   ecr_services = { for s in local.services : s.name => s if s.ecr }
