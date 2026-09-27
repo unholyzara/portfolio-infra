@@ -3,16 +3,15 @@ name: Bootstrap services
 on:
   workflow_dispatch:
     inputs:
-      action:
-        description: "Action to run"
-        type: choice
-        options: [plan, apply]
-        default: plan
+      apply:
+        description: "Run terraform apply after reviewing the plan"
+        type: boolean
+        default: false
         required: true
 
 jobs:
   terraform:
-    name: Terraform ${{ inputs.action }}
+    name: Terraform bootstrap
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -46,7 +45,7 @@ jobs:
         run: terraform plan -out=tfplan
 
       - name: Terraform apply
-        if: inputs.action == 'apply'
+        if: inputs.apply
         working-directory: global/
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
