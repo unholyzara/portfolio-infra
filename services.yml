@@ -10,14 +10,13 @@ services:
   #   visibility: public
   #   template_repository: null
 
-  # - name: admin
-  #   type: admin
-  #   repo_description: "Portfolio admin — Django backoffice"
-  #   ecr: true
-  #   deployable: true
-  #   visibility: public
-  #   ip_whitelist: true
-  #   template_repository: null
+  - name: admin
+    type: admin
+    repo_description: "Portfolio admin — Django backoffice"
+    ecr: true
+    deployable: true
+    visibility: public
+    template_repository: null
 
   - name: persona
     type: backend
