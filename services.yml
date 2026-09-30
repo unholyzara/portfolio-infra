@@ -10,13 +10,13 @@ services:
   #   visibility: public
   #   template_repository: null
 
-  - name: admin
-    type: admin
-    repo_description: "Portfolio admin — Django backoffice"
-    ecr: true
-    deployable: true
-    visibility: public
-    template_repository: null
+  # - name: admin
+  #   type: admin
+  #   repo_description: "Portfolio admin — Django backoffice"
+  #   ecr: true
+  #   deployable: true
+  #   visibility: public
+  #   template_repository: null
 
   - name: api
     type: backend
