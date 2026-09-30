@@ -18,37 +18,13 @@ services:
     visibility: public
     template_repository: null
 
-  - name: persona
+  - name: api
     type: backend
-    repo_description: "Portfolio Persona service — Django"
+    repo_description: "Portfolio API service — Django"
     ecr: true
     deployable: true
     visibility: public
     template_repository: django-template
-
-  # - name: accademic
-  #   type: backend
-  #   repo_description: "Portfolio Accademic service — Django"
-  #   ecr: true
-  #   deployable: true
-  #   visibility: public
-  #   template_repository: django-template
-
-  # - name: work
-  #   type: backend
-  #   repo_description: "Portfolio Work service — Django"
-  #   ecr: true
-  #   deployable: true
-  #   visibility: public
-  #   template_repository: django-template
-
-  # - name: projects
-  #   type: backend
-  #   repo_description: "Portfolio Projects service — Django"
-  #   ecr: true
-  #   deployable: true
-  #   visibility: public
-  #   template_repository: django-template
 
   # - name: cv
   #   type: backend

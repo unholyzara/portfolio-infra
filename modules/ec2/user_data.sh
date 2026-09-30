@@ -28,10 +28,7 @@ AWS_REGION=${aws_region}
 ECR_REGISTRY=${ecr_registry}
 FRONTEND_TAG=main-latest
 ADMIN_TAG=main-latest
-ACCADEMIC_TAG=main-latest
-WORK_TAG=main-latest
-PERSONA_TAG=main-latest
-PROJECTS_TAG=main-latest
+API_TAG=main-latest
 CV_TAG=main-latest
 ENVFILE
 
