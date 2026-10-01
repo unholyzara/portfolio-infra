@@ -24,7 +24,7 @@ services:
     ecr: true
     deployable: true
     visibility: public
-    template_repository: django-template
+    template_repository: null
 
   # - name: cv
   #   type: backend
@@ -32,7 +32,7 @@ services:
   #   ecr: true
   #   deployable: true
   #   visibility: public
-  #   template_repository: django-template
+  #   template_repository: null
 
   - name: postgres
     type: database
