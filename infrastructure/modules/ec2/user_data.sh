@@ -19,7 +19,7 @@ usermod -aG docker deploy
 mkdir -p /home/deploy/app
 cd /home/deploy/app
 
-git clone https://github.com/${github_org}/portfolio-orchestrator.git .
+git clone https://github.com/${github_org}/portfolio-infra.git .
 chown -R deploy:deploy /home/deploy/app
 
 cat > /home/deploy/app/.env << ENVFILE

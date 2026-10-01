@@ -1,0 +1,42 @@
+services:
+  nginx:
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - ./nginx/nginx.local.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - admin
+
+  frontend:
+    build:
+      context: ../portfolio-frontend
+    image: null
+
+  admin:
+    build:
+      context: ../portfolio-admin
+    image: null
+    ports:
+      - "8000:8000"
+
+  api:
+    build:
+      context: ../portfolio-api
+    image: null
+    ports:
+      - "8001:8000"
+
+  cv:
+    build:
+      context: ../portfolio-cv
+    image: null
+    ports:
+      - "8002:8000"
+
+  postgres:
+    ports:
+      - "6543:5432"
+    env_file:
+      - path: ./services/postgres/secrets.env
+        required: false

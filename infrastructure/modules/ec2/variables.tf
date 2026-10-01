@@ -24,7 +24,7 @@ variable "ssh_public_key" {
 }
 
 variable "github_org" {
-  description = "GitHub organization or username owning portfolio-orchestrator."
+  description = "GitHub organization or username owning portfolio-infra."
   type        = string
 }
 

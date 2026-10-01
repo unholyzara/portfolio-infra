@@ -1,0 +1,79 @@
+name: portfolio
+services:
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - certbot-certs:/etc/letsencrypt:ro
+    depends_on:
+      - frontend
+      - admin
+
+  frontend:
+    image: ${ECR_REGISTRY}/portfolio-frontend:${FRONTEND_TAG}
+    restart: unless-stopped
+
+  admin:
+    image: ${ECR_REGISTRY}/portfolio-admin:${ADMIN_TAG}
+    restart: unless-stopped
+    env_file:
+      - ./services/admin/${ENVIRONMENT}.env
+
+  api:
+    image: ${ECR_REGISTRY}/portfolio-api:${API_TAG}
+    restart: unless-stopped
+    env_file:
+      - ./services/api/${ENVIRONMENT}.env
+
+  cv:
+    image: ${ECR_REGISTRY}/portfolio-cv:${CV_TAG}
+    restart: unless-stopped
+    env_file:
+      - ./services/cv/${ENVIRONMENT}.env
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_ROOT_PASSWORD}
+      - API_DB_PASSWORD=${API_DB_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres" ]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    environment:
+      - GF_SERVER_ROOT_URL=https://grafana.admin.unholyzara.dev
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-data:/data
+
+volumes:
+  postgres-data:
+  grafana-data:
+  portainer-data:
+  certbot-certs:

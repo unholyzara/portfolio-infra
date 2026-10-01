@@ -1,6 +1,6 @@
 module "vpc" {
   count  = var.deploy_ready ? 1 : 0
-  source = "../modules/vpc"
+  source = "./modules/vpc"
 
   environment = var.environment
   aws_region  = var.aws_region
@@ -9,7 +9,7 @@ module "vpc" {
 
 module "ec2" {
   count  = var.deploy_ready ? 1 : 0
-  source = "../modules/ec2"
+  source = "./modules/ec2"
 
   environment       = var.environment
   aws_region        = var.aws_region
@@ -23,7 +23,7 @@ module "ec2" {
 
 module "dns" {
   count  = var.deploy_ready && var.domain_ready ? 1 : 0
-  source = "../modules/dns"
+  source = "./modules/dns"
 
   root_domain   = var.root_domain
   subdomain     = var.subdomain
@@ -32,7 +32,7 @@ module "dns" {
 
 module "lambda_autodestroy" {
   count  = var.deploy_ready && var.autodestroy ? 1 : 0
-  source = "../modules/autodestroy"
+  source = "./modules/autodestroy"
 
   github_token = var.github_token
   github_org   = var.github_org

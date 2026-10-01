@@ -34,11 +34,11 @@ jobs:
       - name: Checkout portfolio-infra
         uses: actions/checkout@v4
 
-      - name: Checkout portfolio-orchestrator
+      - name: Checkout portfolio-infra
         uses: actions/checkout@v4
         with:
-          repository: unholyzara/portfolio-orchestrator
-          path: orchestrator
+          repository: unholyzara/portfolio-infra
+          path: infra
 
       - name: Resolve inputs
         id: inputs
@@ -79,7 +79,7 @@ jobs:
           ENVIRONMENT="${{ steps.inputs.outputs.environment }}"
           RUN_MIGRATIONS="${{ steps.inputs.outputs.run_migrations }}"
           ENV_VAR=$(echo "${SERVICE^^}_TAG" | tr '-' '_')
-          SECRETS_FILE="orchestrator/secrets/${SERVICE}/${ENVIRONMENT}.yml"
+          SECRETS_FILE="infra/secrets/${SERVICE}/${ENVIRONMENT}.yml"
 
           # Build inject commands from secrets yml if it exists
           INJECT_COMMANDS=""

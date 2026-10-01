@@ -39,10 +39,3 @@ services:
     custom_image: postgres:16
     ecr: false
     deployable: false
-
-  - name: orchestrator
-    type: orchestrator
-    repo_description: "Portfolio orchestrator — Docker Compose, nginx, scripts for EC2 and local development"
-    ecr: false
-    deployable: false
-    visibility: public
