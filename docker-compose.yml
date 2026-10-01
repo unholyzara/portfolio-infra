@@ -28,6 +28,8 @@ services:
     restart: unless-stopped
     env_file:
       - ./services/api/${ENVIRONMENT}.env
+    depends_on:
+      - postgres
 
   cv:
     image: ${ECR_REGISTRY}/portfolio-cv:${CV_TAG}
