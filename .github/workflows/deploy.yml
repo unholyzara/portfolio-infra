@@ -59,7 +59,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: eu-south-1
+          aws-region: ${{ secrets.ECR_REPO_URL }}
 
       - name: Get EC2 instance ID
         id: ec2

@@ -2,7 +2,7 @@ terraform {
   backend "s3" {
     bucket  = "portfolio-config-terraform-state"
     key     = "global/terraform.tfstate"
-    region  = "eu-south-1"
+    region  = local.aws_region
     encrypt = true
   }
 }

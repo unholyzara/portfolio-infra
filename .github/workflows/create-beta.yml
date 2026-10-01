@@ -18,7 +18,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_BOOTSTRAP_ROLE_ARN }}
-          aws-region: eu-south-1
+          aws-region: ${{ secrets.ECR_REPO_URL }}
 
       - uses: hashicorp/setup-terraform@v3
         with:

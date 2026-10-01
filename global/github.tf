@@ -78,6 +78,14 @@ resource "github_branch_protection" "service_dev" {
   depends_on = [github_branch.service_dev]
 }
 
+resource "github_actions_secret" "infra_repo_aws_region" {
+  for_each = local.deployable_services
+
+  repository  = github_repository.service[each.key].name
+  secret_name = "AWS_REGION"
+  value       = local.aws_region
+}
+
 resource "github_actions_secret" "deploy_role_arn" {
   for_each = local.deployable_services
 
