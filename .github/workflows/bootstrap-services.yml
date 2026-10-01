@@ -2,13 +2,17 @@ name: Bootstrap services
 
 on:
   workflow_dispatch:
+    inputs:
+      apply:
+        description: "Run terraform apply after reviewing the plan"
+        type: boolean
+        default: false
+        required: true
 
 jobs:
   terraform:
     name: Terraform bootstrap
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
     permissions:
       id-token: write
       contents: read
@@ -40,22 +44,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
         run: terraform plan -out=tfplan
 
-      - name: Wait for approval
-        uses: trstringer/manual-approval@v1
-        with:
-          secret: ${{ secrets.GH_ADMIN_TOKEN }}
-          approvers: ${{ github.actor }}
-          minimum-approvals: 1
-          issue-title: "Terraform Apply approval"
-          issue-body: |
-            Terraform plan completato.
-
-            Approva questa richiesta per eseguire terraform apply.
-            Se non viene approvata, il workflow terminerà automaticamente.
-
-          exclude-workflow-initiator-as-approver: false
-
       - name: Terraform apply
+        if: inputs.apply
         working-directory: global/
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
