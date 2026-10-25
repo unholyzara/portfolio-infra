@@ -2,13 +2,13 @@ environments:
   - name: beta
   - name : prd
 services:
-  # - name: frontend
-  #   type: frontend
-  #   repo_description: "Portfolio frontend — Angular"
-  #   ecr: true
-  #   deployable: true
-  #   visibility: public
-  #   template_repository: null
+  - name: frontend
+    type: frontend
+    repo_description: "Portfolio frontend — Angular"
+    ecr: true
+    deployable: true
+    visibility: public
+    template_repository: null
 
   # - name: admin
   #   type: admin
