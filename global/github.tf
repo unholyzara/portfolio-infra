@@ -3,12 +3,6 @@ data "aws_iam_role" "deploy" {
 }
 
 locals {
-  workflow_templates = {
-    frontend = file("${path.module}/../templates/workflows/frontend.yml")
-    admin    = file("${path.module}/../templates/workflows/backend.yml")
-    backend  = file("${path.module}/../templates/workflows/backend.yml")
-  }
-
   github_services = { for s in local.services : s.name => s
     if !try(s.custom_image != null, false)
   }
@@ -56,28 +50,6 @@ resource "github_branch_protection" "service_main" {
   depends_on = [github_branch_default.service]
 }
 
-resource "github_branch" "service_dev" {
-  for_each = local.deployable_services
-
-  repository    = github_repository.service[each.key].name
-  branch        = "dev"
-  source_branch = "main"
-  depends_on    = [github_repository.service]
-}
-
-resource "github_branch_protection" "service_dev" {
-  for_each = local.deployable_services
-
-  repository_id = github_repository.service[each.key].node_id
-  pattern       = "dev"
-
-  required_pull_request_reviews {
-    required_approving_review_count = 0
-  }
-
-  depends_on = [github_branch.service_dev]
-}
-
 resource "github_actions_secret" "infra_repo_aws_region" {
   for_each = local.deployable_services
 
@@ -118,19 +90,15 @@ resource "github_actions_variable" "aws_region" {
   value         = local.aws_region
 }
 
-resource "github_repository_file" "workflow" {
+resource "github_repository_file" "build_workflow" {
   for_each = local.deployable_services
 
-  repository = github_repository.service[each.key].name
-  branch     = "dev"
-  file       = ".github/workflows/ci.yml"
-  content = replace(
-    local.workflow_templates[each.value.type],
-    "{{SERVICE_NAME}}",
-    each.key
-  )
-  commit_message      = "chore: add CI workflow"
+  repository          = github_repository.service[each.key].name
+  branch              = "main"
+  file                = ".github/workflows/build.yml"
+  content             = file("${path.module}/../templates/workflows/build.yml")
+  commit_message      = "chore: add build workflow"
   overwrite_on_create = true
 
-  depends_on = [github_branch.service_dev]
+  depends_on = [github_branch_default.service]
 }

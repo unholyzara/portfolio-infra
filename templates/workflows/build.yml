@@ -1,0 +1,99 @@
+name: Build and publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch or tag to build
+        required: true
+        default: main
+        type: string
+      tests_only:
+        description: Run the test suite only; do not build or publish an image
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: Run service tests
+        run: |
+          TEST_SCRIPT=".github/scripts/test.sh"
+          if [ ! -f "${TEST_SCRIPT}" ]; then
+            echo "::error::Missing ${TEST_SCRIPT}. Add the service-specific test script."
+            exit 1
+          fi
+          bash "${TEST_SCRIPT}"
+
+  build:
+    name: Build and publish Docker image
+    runs-on: ubuntu-latest
+    needs: test
+    if: ${{ !inputs.tests_only }}
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image metadata
+        id: meta
+        env:
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          BRANCH_TAG=$(echo "${BRANCH}" \
+            | tr '[:upper:]' '[:lower:]' \
+            | sed 's#[^a-z0-9._-]#-#g')
+
+          TIMESTAMP=$(TZ=Europe/Rome date '+%d-%m-%Y_%H-%M')
+
+          echo "tag=${BRANCH_TAG}-${TIMESTAMP}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Docker image
+        env:
+          ECR_REPO_URL: ${{ secrets.ECR_REPO_URL }}
+          IMAGE_TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          docker build \
+            -t "${ECR_REPO_URL}:${IMAGE_TAG}" \
+            .
+
+      - name: Push Docker image
+        env:
+          ECR_REPO_URL: ${{ secrets.ECR_REPO_URL }}
+          IMAGE_TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          docker push \
+            "${ECR_REPO_URL}:${IMAGE_TAG}"
+
+      - name: Summary
+        env:
+          ECR_REPO_URL: ${{ secrets.ECR_REPO_URL }}
+          IMAGE_TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          echo "Image published:"
+          echo "${ECR_REPO_URL}:${IMAGE_TAG}"
