@@ -26,14 +26,6 @@ services:
     visibility: public
     template_repository: null
 
-  - name: cv
-    type: backend
-    repo_description: "Portfolio CV service — FastAPI"
-    ecr: true
-    deployable: true
-    visibility: public
-    template_repository: null
-
   - name: postgres
     type: database
     custom_image: postgres:16
