@@ -23,7 +23,7 @@ locals {
 }
 
 module "service_repository" {
-  source   = "./modules/github-repository"
+  source   = "./modules/gh_repo"
   for_each = local.github_services
 
   name        = "portfolio-${each.key}"
@@ -80,7 +80,7 @@ resource "github_actions_variable" "aws_region" {
 }
 
 module "cfg_repository" {
-  source = "./modules/github-repository"
+  source = "./modules/gh_repo"
 
   name                   = "portfolio-cfg"
   description            = "Data and artifacts produced by pipelines"
