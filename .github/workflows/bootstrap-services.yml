@@ -2,14 +2,16 @@ name: Bootstrap services
 
 on:
   workflow_dispatch:
-
-concurrency:
-  group: bootstrap-services-apply
-  cancel-in-progress: false
+    inputs:
+      apply:
+        description: "Run terraform apply after reviewing the plan"
+        type: boolean
+        default: false
+        required: true
 
 jobs:
-  plan:
-    name: Terraform bootstrap plan
+  terraform:
+    name: Terraform bootstrap
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -17,8 +19,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -44,49 +44,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
         run: terraform plan -out=tfplan
 
-      - name: Upload Terraform plan
-        uses: actions/upload-artifact@v4
-        with:
-          name: bootstrap-services-tfplan
-          path: global/tfplan
-          if-no-files-found: error
-          retention-days: 1
-
-  apply:
-    name: Terraform bootstrap apply
-    needs: plan
-    runs-on: ubuntu-latest
-    environment: bootstrap-services-apply
-    permissions:
-      id-token: write
-      contents: read
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_BOOTSTRAP_ROLE_ARN }}
-          aws-region: eu-south-1
-
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "~1.6"
-
-      - name: Terraform init
-        working-directory: global/
-        run: terraform init
-
-      - name: Download Terraform plan
-        uses: actions/download-artifact@v4
-        with:
-          name: bootstrap-services-tfplan
-          path: global/
-
       - name: Terraform apply
+        if: inputs.apply
         working-directory: global/
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
