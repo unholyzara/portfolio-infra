@@ -1,3 +1,7 @@
+data "aws_iam_role" "deploy" {
+  name = "portfolio-role-deploy"
+}
+
 locals {
   workflow_templates = {
     frontend = file("${path.module}/../templates/workflows/frontend.yml")
