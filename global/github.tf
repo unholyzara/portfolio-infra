@@ -43,11 +43,18 @@ resource "github_branch_protection" "service_main" {
   repository_id = github_repository.service[each.key].node_id
   pattern       = "main"
 
+  required_status_checks {
+    strict   = true
+    contexts = ["PR Tests / Run tests"]
+  }
+
   required_pull_request_reviews {
     required_approving_review_count = 0
   }
 
-  depends_on = [github_branch_default.service]
+  depends_on = [
+    github_branch_default.service
+  ]
 }
 
 resource "github_actions_secret" "infra_repo_aws_region" {
@@ -98,6 +105,19 @@ resource "github_repository_file" "build_workflow" {
   file                = ".github/workflows/build.yml"
   content             = file("${path.module}/../templates/workflows/build.yml")
   commit_message      = "chore: add build workflow"
+  overwrite_on_create = true
+
+  depends_on = [github_branch_default.service]
+}
+
+resource "github_repository_file" "pr_tests_workflow" {
+  for_each = local.github_services
+
+  repository          = github_repository.service[each.key].name
+  branch              = "main"
+  file                = ".github/workflows/pr-tests.yml"
+  content             = file("${path.module}/../templates/workflows/pr-tests.yml")
+  commit_message      = "chore: add PR tests workflow"
   overwrite_on_create = true
 
   depends_on = [github_branch_default.service]

@@ -1,0 +1,29 @@
+name: PR Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run service tests
+        run: |
+          TEST_SCRIPT=".github/scripts/test.sh"
+
+          if [ ! -f "${TEST_SCRIPT}" ]; then
+            echo "::error::Missing ${TEST_SCRIPT}. Add the service-specific test script."
+            exit 1
+          fi
+
+          bash "${TEST_SCRIPT}"
