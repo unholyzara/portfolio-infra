@@ -1,9 +1,14 @@
+
 name: PR Tests
 
 on:
   pull_request:
     branches:
       - main
+
+concurrency:
+  group: pr-tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
