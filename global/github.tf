@@ -45,7 +45,7 @@ resource "github_branch_protection" "service_main" {
 
   required_status_checks {
     strict   = true
-    contexts = ["PR Tests / Run tests (pull_request)"]
+    contexts = ["Run tests"]
   }
 
   required_pull_request_reviews {
