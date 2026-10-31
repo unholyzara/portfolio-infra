@@ -1,11 +1,10 @@
 locals {
-  backup_bucket_arn = "arn:aws:s3:::${var.backup_bucket_name}"
-  backup_actions    = var.create_backup_bucket ? ["s3:GetObject", "s3:PutObject"] : ["s3:GetObject"]
+  backup_actions = var.create_backup_bucket ? ["s3:GetObject", "s3:PutObject"] : ["s3:GetObject"]
 }
 
 resource "aws_s3_bucket" "backup" {
   count  = var.create_backup_bucket ? 1 : 0
-  bucket = var.backup_bucket_name
+  bucket = var.bucket_name
 
   lifecycle {
     prevent_destroy = true
@@ -39,12 +38,12 @@ resource "aws_s3_bucket_lifecycle_configuration" "backup" {
 data "aws_iam_policy_document" "backup" {
   statement {
     actions   = local.backup_actions
-    resources = ["${local.backup_bucket_arn}/prd/*"]
+    resources = ["${aws_s3_bucket.backup[0].arn}/${var.resources_path}"]
   }
 }
 
 resource "aws_iam_role_policy" "backup" {
-  name   = "backup-access"
-  role   = module.ec2.ec2_role_id
+  name   = "${var.bucket_name}-access"
+  role   = var.role_id
   policy = data.aws_iam_policy_document.backup.json
 }

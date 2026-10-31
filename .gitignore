@@ -1,4 +1,5 @@
 doc/*
 *.sql
 *.dump
-db_backups/*
+db_backups
+.terraform
