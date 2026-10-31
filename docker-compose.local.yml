@@ -1,21 +1,21 @@
 name: portfolio
 services:
-  nginx:
-    image: nginx:alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.local.conf:/etc/nginx/nginx.conf:ro
-      - certbot-certs:/etc/letsencrypt:ro
-    depends_on:
-      - frontend
-      # - admin
+  # nginx:
+  #   image: nginx:alpine
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx/nginx.local.conf:/etc/nginx/nginx.conf:ro
+  #     - certbot-certs:/etc/letsencrypt:ro
+  #   depends_on:
+  #     - frontend
+  #     # - admin
 
-  frontend:
-    build:
-      context: ../portfolio-frontend
+  # frontend:
+  #   build:
+  #     context: ../portfolio-frontend
 
   # admin:
   #   build:
