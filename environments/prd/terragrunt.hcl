@@ -20,4 +20,6 @@ inputs = {
   deploy_ready  = local.config.locals.deploy_ready
   github_org    = local.config.locals.github_org
   aws_region    = local.config.locals.aws_region
+  backup_bucket_name   = local.config.locals.backup_bucket_name
+  create_backup_bucket = true
 }

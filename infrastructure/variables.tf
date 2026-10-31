@@ -68,3 +68,14 @@ variable "github_token" {
   sensitive   = true
   default     = ""
 }
+
+variable "backup_bucket_name" {
+  description = "Name of the S3 bucket that stores database backups"
+  type        = string
+}
+
+variable "create_backup_bucket" {
+  description = "Whether this environment owns the backup bucket"
+  type        = bool
+  default     = false
+}
