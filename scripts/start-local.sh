@@ -15,8 +15,8 @@ read_dump() {
     fi
 }
 
-if [[ -z "${ADMIN_USER:-}" ]]; then
-    read -rp "Username amministratore: " ADMIN_USER
+if [[ -z "${ADMIN_EMAIL:-}" ]]; then
+    read -rp "Email amministratore: " ADMIN_EMAIL
 fi
 
 if [[ -z "${ADMIN_PASS:-}" ]]; then
@@ -24,10 +24,8 @@ if [[ -z "${ADMIN_PASS:-}" ]]; then
     echo
 fi
 
-ADMIN_EMAIL="${ADMIN_EMAIL:-admin@localhost}"
-
-if [[ -z "${ADMIN_USER}" || -z "${ADMIN_PASS}" ]]; then
-    echo "Username e password dell'amministratore sono obbligatori." >&2
+if [[ -z "${ADMIN_EMAIL}" || -z "${ADMIN_PASS}" ]]; then
+    echo "Email e password dell'amministratore sono obbligatorie." >&2
     exit 1
 fi
 
@@ -76,31 +74,27 @@ if [[ -f "${DUMP_FILE}" ]]; then
 
     echo "Assicuro la presenza dell'amministratore..."
     docker compose -f "${COMPOSE_FILE}" run --rm -T \
-        -e "DJANGO_SUPERUSER_USERNAME=${ADMIN_USER}" \
-        -e "DJANGO_SUPERUSER_PASSWORD=${ADMIN_PASS}" \
         -e "DJANGO_SUPERUSER_EMAIL=${ADMIN_EMAIL}" \
+        -e "DJANGO_SUPERUSER_PASSWORD=${ADMIN_PASS}" \
         api python manage.py shell -c "
 import os
 from django.contrib.auth import get_user_model
 User = get_user_model()
-username = os.environ.get('DJANGO_SUPERUSER_USERNAME')
-password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
-email = os.environ.get('DJANGO_SUPERUSER_EMAIL', 'admin@localhost')
-if username and password:
-    user, created = User.objects.get_or_create(username=username, defaults={'email': email, 'is_staff': True, 'is_superuser': True})
-    user.set_password(password)
-    user.is_staff = True
-    user.is_superuser = True
-    user.email = email
-    user.save()
+email = os.environ['DJANGO_SUPERUSER_EMAIL']
+password = os.environ['DJANGO_SUPERUSER_PASSWORD']
+user, _ = User.objects.get_or_create(email=email)
+user.set_password(password)
+user.is_staff = True
+user.is_superuser = True
+user.is_active = True
+user.save()
 "
 else
     echo "Nessun backup trovato in ${DUMP_FILE}, parto da un database vuoto."
     echo "Applico le migrazioni e creo l'amministratore..."
     docker compose -f "${COMPOSE_FILE}" run --rm -T \
-        -e "DJANGO_SUPERUSER_USERNAME=${ADMIN_USER}" \
-        -e "DJANGO_SUPERUSER_PASSWORD=${ADMIN_PASS}" \
         -e "DJANGO_SUPERUSER_EMAIL=${ADMIN_EMAIL}" \
+        -e "DJANGO_SUPERUSER_PASSWORD=${ADMIN_PASS}" \
         api python manage.py createsuperuser --noinput
 fi
 
