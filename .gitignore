@@ -1,3 +1,4 @@
 doc/*
 *.sql
 *.dump
+db_backups/*

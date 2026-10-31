@@ -52,6 +52,17 @@ services:
       timeout: 3s
       retries: 30
 
+  backup:
+    build: ./backup
+    profiles: [ backup ]
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    env_file:
+      - ./env/backup/prd.env
+    environment:
+      - PGPASSWORD: ${API_DB_PASSWORD}
+
   grafana:
     image: grafana/grafana:latest
     restart: unless-stopped
