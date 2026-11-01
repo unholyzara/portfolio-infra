@@ -20,6 +20,9 @@ resource "github_repository" "service" {
   visibility  = each.value.visibility
   auto_init   = try(each.value.template_repository, null) == null ? true : false
 
+  has_issues   = true
+  has_projects = true
+
   dynamic "template" {
     for_each = try(each.value.template_repository, null) != null ? [1] : []
     content {
