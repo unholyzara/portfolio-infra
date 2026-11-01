@@ -64,39 +64,11 @@ until docker compose -f "${COMPOSE_FILE}" exec -T postgres psql -U "${API_DB_USE
     sleep 1
 done
 
-if [[ -f "${DUMP_FILE}" ]]; then
-    echo "Trovato backup del database in ${DUMP_FILE}, avvio l'importazione..."
-    read_dump | docker compose -f "${COMPOSE_FILE}" exec -T postgres psql -v ON_ERROR_STOP=1 -U "${API_DB_USER}" -d "${API_DB_NAME}" >/dev/null
-    echo "Backup del database importato con successo."
-
-    echo "Verifico eventuali nuove migrazioni..."
-    docker compose -f "${COMPOSE_FILE}" run --rm -T api python manage.py migrate --noinput
-
-    echo "Assicuro la presenza dell'amministratore..."
-    docker compose -f "${COMPOSE_FILE}" run --rm -T \
-        -e "DJANGO_SUPERUSER_EMAIL=${ADMIN_EMAIL}" \
-        -e "DJANGO_SUPERUSER_PASSWORD=${ADMIN_PASS}" \
-        api python manage.py shell -c "
-import os
-from django.contrib.auth import get_user_model
-User = get_user_model()
-email = os.environ['DJANGO_SUPERUSER_EMAIL']
-password = os.environ['DJANGO_SUPERUSER_PASSWORD']
-user, _ = User.objects.get_or_create(email=email)
-user.set_password(password)
-user.is_staff = True
-user.is_superuser = True
-user.is_active = True
-user.save()
-"
-else
-    echo "Nessun backup trovato in ${DUMP_FILE}, parto da un database vuoto."
-    echo "Applico le migrazioni e creo l'amministratore..."
-    docker compose -f "${COMPOSE_FILE}" run --rm -T \
-        -e "DJANGO_SUPERUSER_EMAIL=${ADMIN_EMAIL}" \
-        -e "DJANGO_SUPERUSER_PASSWORD=${ADMIN_PASS}" \
-        api python manage.py createsuperuser --noinput
-fi
+echo "Applico le migrazioni e creo l'amministratore..."
+docker compose -f "${COMPOSE_FILE}" run --rm -T \
+    -e "DJANGO_SUPERUSER_EMAIL=${ADMIN_EMAIL}" \
+    -e "DJANGO_SUPERUSER_PASSWORD=${ADMIN_PASS}" \
+    api python manage.py createsuperuser --noinput
 
 echo "Avvio una nuova istanza locale..."
 exec docker compose -f "${COMPOSE_FILE}" up
