@@ -5,29 +5,9 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 COMPOSE_FILE="${PROJECT_DIR}/docker-compose.local.yml"
 API_ENV_FILE="${PROJECT_DIR}/services/api/local.env"
-DUMP_FILE="${DUMP_FILE:-${PROJECT_DIR}/db_backups/latest.sql.gz}"
 
-read_dump() {
-    if [[ "${DUMP_FILE}" == *.gz ]]; then
-        gunzip -c "${DUMP_FILE}"
-    else
-        cat "${DUMP_FILE}"
-    fi
-}
-
-if [[ -z "${ADMIN_EMAIL:-}" ]]; then
-    read -rp "Email amministratore: " ADMIN_EMAIL
-fi
-
-if [[ -z "${ADMIN_PASS:-}" ]]; then
-    read -rsp "Password amministratore: " ADMIN_PASS
-    echo
-fi
-
-if [[ -z "${ADMIN_EMAIL}" || -z "${ADMIN_PASS}" ]]; then
-    echo "Email e password dell'amministratore sono obbligatorie." >&2
-    exit 1
-fi
+ADMIN_EMAIL="admin@admin.it"
+ADMIN_PASS="admin"
 
 if ! command -v docker >/dev/null 2>&1; then
     echo "Docker non e' installato o non e' disponibile nel PATH." >&2
