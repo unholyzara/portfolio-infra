@@ -33,7 +33,7 @@ jobs:
           chmod +x /usr/local/bin/terragrunt
 
       - name: Terragrunt destroy
-        working-directory: environments/beta/
+        working-directory: terraform/environments/beta
         env:
           TF_VAR_admin_ip:       ${{ secrets.ADMIN_IP }}
           TF_VAR_ssh_public_key: ${{ secrets.SSH_PUBLIC_KEY }}

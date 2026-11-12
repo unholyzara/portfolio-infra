@@ -79,7 +79,7 @@ jobs:
           ENVIRONMENT="${{ steps.inputs.outputs.environment }}"
           RUN_MIGRATIONS="${{ steps.inputs.outputs.run_migrations }}"
           ENV_VAR=$(echo "${SERVICE^^}_TAG" | tr '-' '_')
-          SECRETS_FILE="infra/secrets/${SERVICE}/${ENVIRONMENT}.yml"
+          SECRETS_FILE="./services/${SERVICE}/secrets/${ENVIRONMENT}.yml"
 
           # Build inject commands from secrets yml if it exists
           INJECT_COMMANDS=""

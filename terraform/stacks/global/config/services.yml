@@ -1,0 +1,21 @@
+environments:
+  - name: beta
+  - name : prd
+services:
+  - name: frontend
+    type: frontend
+    repo_description: "Portfolio frontend — Angular"
+    deployable: true
+    visibility: public
+
+  - name: admin
+    type: admin
+    repo_description: "Portfolio admin — Django backoffice"
+    deployable: true
+    visibility: public
+
+  - name: api
+    type: backend
+    repo_description: "Portfolio API service — Django"
+    deployable: true
+    visibility: public

@@ -31,22 +31,22 @@ jobs:
           terraform_version: "~1.6"
 
       - name: Terraform init
-        working-directory: global/
+        working-directory: terraform/stacks/global/
         run: terraform init
 
       - name: Terraform validate
-        working-directory: global/
+        working-directory: terraform/stacks/global/
         run: terraform validate
 
       - name: Terraform plan
-        working-directory: global/
+        working-directory: terraform/stacks/global/
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
         run: terraform plan -out=tfplan
 
       - name: Terraform apply
         if: inputs.apply
-        working-directory: global/
+        working-directory: terraform/stacks/global/
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
         run: terraform apply tfplan
