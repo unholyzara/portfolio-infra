@@ -1,0 +1,65 @@
+name: Deploy infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        type: choice
+        options: [beta, prd]
+        default: beta
+        required: true
+      apply:
+        description: "Apply the plan"
+        type: boolean
+        default: false
+
+concurrency:
+  group: terraform-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  terraform:
+    name: Terraform ${{ inputs.apply && 'apply' || 'plan' }} ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    defaults:
+      run:
+        working-directory: terraform/stacks/infrastructure
+
+    env:
+      ENVIRONMENT: ${{ inputs.environment }}
+      AWS_REGION: eu-south-1
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_VAR_ecr_registry: ${{ vars.ECR_REGISTRY }}
+      TF_VAR_github_token: ${{ secrets.GH_ADMIN_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_BOOTSTRAP_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+
+      - name: Terraform init
+        run: terraform init -backend-config="key=infrastructure/${ENVIRONMENT}/terraform.tfstate"
+
+      - name: Terraform plan
+        run: |
+          terraform plan -out=tfplan \
+            -var-file=../common.tfvars \
+            -var-file="vars/${ENVIRONMENT}.tfvars"
+
+      - name: Terraform apply
+        if: inputs.apply
+        run: terraform apply tfplan

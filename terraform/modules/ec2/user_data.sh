@@ -2,10 +2,11 @@
 set -euo pipefail
 
 dnf update -y
-dnf install -y docker git jq
+dnf install -y docker git jq cronie
 
 systemctl enable docker
 systemctl start docker
+systemctl enable --now crond
 
 DOCKER_COMPOSE_VERSION="2.27.0"
 mkdir -p /usr/local/lib/docker/cli-plugins
@@ -15,6 +16,11 @@ chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
 useradd -m -s /bin/bash deploy
 usermod -aG docker deploy
+
+id ssm-user &>/dev/null || useradd -m -s /bin/bash ssm-user
+usermod -aG docker ssm-user
+echo "ssm-user ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ssm-agent-users
+chmod 440 /etc/sudoers.d/ssm-agent-users
 
 mkdir -p /home/deploy/app
 cd /home/deploy/app
@@ -32,16 +38,20 @@ API_TAG=main-latest
 CV_TAG=main-latest
 ENVFILE
 
-POSTGRES_ROOT_PASSWORD=$(aws secretsmanager get-secret-value \
-  --secret-id /portfolio/${environment}/postgres \
-  --query SecretString \
+POSTGRES_ROOT_PASSWORD=$(aws ssm get-parameter \
+  --region ${aws_region} \
+  --name /portfolio/${environment}/postgres \
+  --with-decryption \
+  --query Parameter.Value \
   --output text | jq -r '.root_password')
 echo "POSTGRES_ROOT_PASSWORD=$POSTGRES_ROOT_PASSWORD" >> /home/deploy/app/.env
 
 %{ if environment == "prd" ~}
-GRAFANA_ADMIN_PASSWORD=$(aws secretsmanager get-secret-value \
-  --secret-id /portfolio/${environment}/grafana \
-  --query SecretString \
+GRAFANA_ADMIN_PASSWORD=$(aws ssm get-parameter \
+  --region ${aws_region} \
+  --name /portfolio/${environment}/grafana \
+  --with-decryption \
+  --query Parameter.Value \
   --output text | jq -r '.admin_password')
 echo "GRAFANA_ADMIN_PASSWORD=$GRAFANA_ADMIN_PASSWORD" >> /home/deploy/app/.env
 %{ endif ~}
@@ -49,8 +59,7 @@ echo "GRAFANA_ADMIN_PASSWORD=$GRAFANA_ADMIN_PASSWORD" >> /home/deploy/app/.env
 chmod 600 /home/deploy/app/.env
 chown deploy:deploy /home/deploy/app/.env
 
-aws ecr get-login-password --region ${aws_region} | \
-  docker login --username AWS --password-stdin ${ecr_registry}
+sudo -u deploy bash -c "aws ecr get-login-password --region ${aws_region} | docker login --username AWS --password-stdin ${ecr_registry}"
 
 cat > /etc/cron.d/ecr-login << CRONFILE
 0 */6 * * * deploy aws ecr get-login-password --region ${aws_region} | docker login --username AWS --password-stdin ${ecr_registry}

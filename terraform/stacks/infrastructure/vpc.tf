@@ -4,5 +4,4 @@ module "vpc" {
 
   environment = var.environment
   aws_region  = data.aws_region.current.name
-  admin_ip    = var.admin_ip
 }

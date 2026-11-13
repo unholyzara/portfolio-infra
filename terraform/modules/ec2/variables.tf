@@ -18,11 +18,6 @@ variable "instance_type" {
   type = string
 }
 
-variable "ssh_public_key" {
-  description = "SSH public key content for EC2 access."
-  type        = string
-}
-
 variable "github_org" {
   description = "GitHub organization or username owning portfolio-infra."
   type        = string

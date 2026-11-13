@@ -39,18 +39,6 @@ variable "root_domain" {
   type        = string
 }
 
-variable "admin_ip" {
-  description = "Your IP address in CIDR notation for SSH access (e.g. 1.2.3.4/32)."
-  type        = string
-  default     = ""
-}
-
-variable "ssh_public_key" {
-  description = "SSH public key content for EC2 access."
-  type        = string
-  default     = ""
-}
-
 variable "github_org" {
   description = "GitHub organization or username."
   type        = string

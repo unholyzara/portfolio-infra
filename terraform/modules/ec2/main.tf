@@ -28,6 +28,11 @@ resource "aws_iam_role" "ec2" {
   })
 }
 
+resource "aws_iam_role_policy_attachment" "ssm_core" {
+  role       = aws_iam_role.ec2.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
 resource "aws_iam_role_policy" "ec2" {
   name = "ec2-permissions"
   role = aws_iam_role.ec2.id
@@ -60,21 +65,10 @@ resource "aws_iam_role_policy" "ec2" {
       {
         Effect = "Allow"
         Action = [
-          "ssm:UpdateInstanceInformation",
-          "ssmmessages:CreateControlChannel",
-          "ssmmessages:CreateDataChannel",
-          "ssmmessages:OpenControlChannel",
-          "ssmmessages:OpenDataChannel"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow",
-        Action = [
           "ssm:GetParameter",
           "ssm:GetParameters",
           "ssm:GetParametersByPath"
-        ],
+        ]
         Resource = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/portfolio/${var.environment}/*"
       }
     ]
@@ -86,18 +80,12 @@ resource "aws_iam_instance_profile" "ec2" {
   role = aws_iam_role.ec2.name
 }
 
-resource "aws_key_pair" "main" {
-  key_name   = "portfolio-${var.environment}-key"
-  public_key = var.ssh_public_key
-}
-
 resource "aws_spot_instance_request" "main" {
   ami                            = data.aws_ami.amazon_linux_2023.id
   instance_type                  = var.instance_type
   subnet_id                      = var.subnet_id
   vpc_security_group_ids         = [var.security_group_id]
   iam_instance_profile           = aws_iam_instance_profile.ec2.name
-  key_name                       = aws_key_pair.main.key_name
   wait_for_fulfillment           = true
   spot_type                      = "persistent"
   instance_interruption_behavior = "stop"
@@ -119,6 +107,17 @@ resource "aws_spot_instance_request" "main" {
     Name        = "portfolio-${var.environment}"
     Environment = var.environment
   }
+}
+
+resource "aws_ec2_tag" "instance" {
+  for_each = {
+    Name        = "portfolio-${var.environment}"
+    Environment = var.environment
+  }
+
+  resource_id = aws_spot_instance_request.main.spot_instance_id
+  key         = each.key
+  value       = each.value
 }
 
 resource "aws_eip" "main" {

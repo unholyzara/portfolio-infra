@@ -7,7 +7,6 @@ module "ec2" {
   subnet_id         = module.vpc[0].public_subnet_id
   security_group_id = module.vpc[0].ec2_security_group_id
   instance_type     = var.instance_type
-  ssh_public_key    = var.ssh_public_key
   github_org        = var.github_org
   ecr_registry      = var.ecr_registry
 }
