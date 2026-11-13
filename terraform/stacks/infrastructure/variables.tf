@@ -44,12 +44,6 @@ variable "github_org" {
   type        = string
 }
 
-variable "ecr_registry" {
-  description = "ECR registry URL (account_id.dkr.ecr.region.amazonaws.com)."
-  type        = string
-  default     = ""
-}
-
 variable "github_token" {
   description = "GitHub token used by the autodestroy Lambda."
   type        = string

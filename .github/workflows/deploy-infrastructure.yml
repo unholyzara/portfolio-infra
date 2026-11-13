@@ -35,7 +35,6 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION }}
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
-      TF_VAR_ecr_registry: ${{ vars.ECR_REGISTRY }}
       TF_VAR_github_token: ${{ secrets.GH_ADMIN_TOKEN }}
 
     steps:

@@ -8,5 +8,5 @@ module "ec2" {
   security_group_id = module.vpc[0].ec2_security_group_id
   instance_type     = var.instance_type
   github_org        = var.github_org
-  ecr_registry      = var.ecr_registry
+  ecr_registry      = local.ecr_registry
 }
