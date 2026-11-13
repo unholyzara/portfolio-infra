@@ -45,7 +45,6 @@ jobs:
         run: |
           terraform plan -out=tfplan \
             -var-file=../common.tfvars \
-            -var-file="vars/common.tfvars"
 
       - name: Terraform apply
         if: inputs.apply
