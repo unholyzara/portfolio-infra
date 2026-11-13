@@ -25,7 +25,7 @@ chmod 440 /etc/sudoers.d/ssm-agent-users
 mkdir -p /home/deploy/app
 cd /home/deploy/app
 
-git clone https://github.com/${github_org}/portfolio-infra.git .
+git clone https://github.com/${github_org}/${github_repository}.git .
 chown -R deploy:deploy /home/deploy/app
 
 cat > /home/deploy/app/.env << ENVFILE
@@ -40,7 +40,7 @@ ENVFILE
 
 POSTGRES_ROOT_PASSWORD=$(aws ssm get-parameter \
   --region ${aws_region} \
-  --name /portfolio/${environment}/postgres \
+  --name /${project_name}/${environment}/postgres \
   --with-decryption \
   --query Parameter.Value \
   --output text | jq -r '.root_password')
@@ -49,7 +49,7 @@ echo "POSTGRES_ROOT_PASSWORD=$POSTGRES_ROOT_PASSWORD" >> /home/deploy/app/.env
 %{ if environment == "prd" ~}
 GRAFANA_ADMIN_PASSWORD=$(aws ssm get-parameter \
   --region ${aws_region} \
-  --name /portfolio/${environment}/grafana \
+  --name /${project_name}/${environment}/grafana \
   --with-decryption \
   --query Parameter.Value \
   --output text | jq -r '.admin_password')

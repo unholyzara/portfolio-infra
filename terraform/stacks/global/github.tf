@@ -3,7 +3,7 @@ module "service_gh_repository" {
 
   for_each = local.services
 
-  name            = "portfolio-${each.key}"
+  name            = "${var.project_name}-${each.key}"
   description     = each.value.repo_description
   visibility      = each.value.visibility
   aws_region      = data.aws_region.current.name

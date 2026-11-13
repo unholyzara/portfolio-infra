@@ -6,6 +6,10 @@ variable "aws_region" {
   type = string
 }
 
+variable "project_name" {
+  type = string
+}
+
 variable "subnet_id" {
   type = string
 }
@@ -19,8 +23,12 @@ variable "instance_type" {
 }
 
 variable "github_org" {
-  description = "GitHub organization or username owning portfolio-infra."
+  description = "GitHub organization or username owning github_repository-infra."
   type        = string
+}
+
+variable "github_repository" {
+  type = string
 }
 
 variable "ecr_registry" {

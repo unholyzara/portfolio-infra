@@ -16,7 +16,7 @@ data "aws_ami" "amazon_linux_2023" {
 data "aws_caller_identity" "current" {}
 
 resource "aws_iam_role" "ec2" {
-  name = "portfolio-${var.environment}-ec2-role"
+  name = "${var.project_name}-${var.environment}-ec2-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -52,7 +52,7 @@ resource "aws_iam_role_policy" "ec2" {
           "ecr:GetDownloadUrlForLayer",
           "ecr:BatchGetImage"
         ]
-        Resource = "arn:aws:ecr:${var.aws_region}:${data.aws_caller_identity.current.account_id}:repository/portfolio-*"
+        Resource = "arn:aws:ecr:${var.aws_region}:${data.aws_caller_identity.current.account_id}:repository/${var.project_name}-*"
       },
       {
         Effect = "Allow"
@@ -60,7 +60,7 @@ resource "aws_iam_role_policy" "ec2" {
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ]
-        Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/portfolio/${var.environment}/*"
+        Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/${var.project_name}/${var.environment}/*"
       },
       {
         Effect = "Allow"
@@ -69,14 +69,14 @@ resource "aws_iam_role_policy" "ec2" {
           "ssm:GetParameters",
           "ssm:GetParametersByPath"
         ]
-        Resource = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/portfolio/${var.environment}/*"
+        Resource = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${var.project_name}/${var.environment}/*"
       }
     ]
   })
 }
 
 resource "aws_iam_instance_profile" "ec2" {
-  name = "portfolio-${var.environment}-ec2-profile"
+  name = "${var.project_name}-${var.environment}-ec2-profile"
   role = aws_iam_role.ec2.name
 }
 
@@ -97,21 +97,23 @@ resource "aws_spot_instance_request" "main" {
   }
 
   user_data = base64encode(templatefile("${path.module}/user_data.sh", {
-    environment  = var.environment
-    aws_region   = var.aws_region
-    github_org   = var.github_org
-    ecr_registry = var.ecr_registry
+    environment       = var.environment
+    aws_region        = var.aws_region
+    project_name      = var.project_name
+    github_org        = var.github_org
+    github_repository = var.github_repository
+    ecr_registry      = var.ecr_registry
   }))
 
   tags = {
-    Name        = "portfolio-${var.environment}"
+    Name        = "${var.project_name}-${var.environment}"
     Environment = var.environment
   }
 }
 
 resource "aws_ec2_tag" "instance" {
   for_each = {
-    Name        = "portfolio-${var.environment}"
+    Name        = "${var.project_name}-${var.environment}"
     Environment = var.environment
   }
 
@@ -122,7 +124,7 @@ resource "aws_ec2_tag" "instance" {
 
 resource "aws_eip" "main" {
   domain = "vpc"
-  tags   = { Name = "portfolio-${var.environment}-eip" }
+  tags   = { Name = "${var.project_name}-${var.environment}-eip" }
 }
 
 resource "aws_eip_association" "main" {

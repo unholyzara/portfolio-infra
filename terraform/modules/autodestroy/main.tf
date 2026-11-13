@@ -1,5 +1,5 @@
 resource "aws_cloudwatch_event_connection" "github" {
-  name               = "portfolio-github-connection"
+  name               = "${var.project_name}-github-connection"
   authorization_type = "API_KEY"
 
   auth_parameters {
@@ -11,15 +11,15 @@ resource "aws_cloudwatch_event_connection" "github" {
 }
 
 resource "aws_cloudwatch_event_api_destination" "destroy_beta" {
-  name                             = "portfolio-destroy-beta"
+  name                             = "${var.project_name}-destroy-beta"
   connection_arn                   = aws_cloudwatch_event_connection.github.arn
-  invocation_endpoint              = "https://api.github.com/repos/${var.github_org}/portfolio-infra/actions/workflows/destroy-beta.yml/dispatches"
+  invocation_endpoint              = "https://api.github.com/repos/${var.github_org}/${var.github_repository}/actions/workflows/${github_destroy_pipeline_name}/dispatches"
   http_method                      = "POST"
   invocation_rate_limit_per_second = 1
 }
 
 resource "aws_iam_role" "eventbridge" {
-  name = "portfolio-beta-autodestroy-role"
+  name = "${var.project_name}-beta-autodestroy-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -46,7 +46,7 @@ resource "aws_iam_role_policy" "eventbridge" {
 }
 
 resource "aws_cloudwatch_event_rule" "autodestroy" {
-  name                = "portfolio-beta-autodestroy"
+  name                = "${var.project_name}-beta-autodestroy"
   description         = "Triggers beta environment destruction at 4 AM daily"
   schedule_expression = "cron(0 4 * * ? *)"
 }

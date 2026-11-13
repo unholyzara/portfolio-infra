@@ -3,12 +3,12 @@ resource "aws_vpc" "main" {
   enable_dns_support   = true
   enable_dns_hostnames = true
 
-  tags = { Name = "portfolio-${var.environment}" }
+  tags = { Name = "${var.project_name}-${var.environment}" }
 }
 
 resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
-  tags   = { Name = "portfolio-${var.environment}-igw" }
+  tags   = { Name = "${var.project_name}-${var.environment}-igw" }
 }
 
 resource "aws_subnet" "public" {
@@ -16,7 +16,7 @@ resource "aws_subnet" "public" {
   cidr_block              = var.public_subnet_cidr
   availability_zone       = "${var.aws_region}a"
   map_public_ip_on_launch = true
-  tags                    = { Name = "portfolio-${var.environment}-public" }
+  tags                    = { Name = "${var.project_name}-${var.environment}-public" }
 }
 
 resource "aws_route_table" "public" {
@@ -27,7 +27,7 @@ resource "aws_route_table" "public" {
     gateway_id = aws_internet_gateway.main.id
   }
 
-  tags = { Name = "portfolio-${var.environment}-rt" }
+  tags = { Name = "${var.project_name}-${var.environment}-rt" }
 }
 
 resource "aws_route_table_association" "public" {
@@ -36,8 +36,8 @@ resource "aws_route_table_association" "public" {
 }
 
 resource "aws_security_group" "ec2" {
-  name        = "portfolio-${var.environment}-ec2"
-  description = "Security group for portfolio ${var.environment} EC2"
+  name        = "${var.project_name}-${var.environment}-ec2"
+  description = "Security group for ${var.project_name} ${var.environment} EC2"
   vpc_id      = aws_vpc.main.id
 
   ingress {
@@ -61,5 +61,5 @@ resource "aws_security_group" "ec2" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = { Name = "portfolio-${var.environment}-ec2-sg" }
+  tags = { Name = "${var.project_name}-${var.environment}-ec2-sg" }
 }
