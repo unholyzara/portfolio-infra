@@ -24,7 +24,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_BOOTSTRAP_ROLE_ARN }}
-          aws-region: eu-south-1
+          aws-region: ${{ vars.AWS_REGION }}
 
       - uses: hashicorp/setup-terraform@v3
         with:
@@ -32,7 +32,7 @@ jobs:
 
       - name: Terraform init
         working-directory: terraform/stacks/global/
-        run: terraform init
+        run: terraform init -backend-config="key=global/terraform.tfstate"
 
       - name: Terraform validate
         working-directory: terraform/stacks/global/
@@ -42,7 +42,11 @@ jobs:
         working-directory: terraform/stacks/global/
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
-        run: terraform plan -out=tfplan
+        run: |
+          terraform plan -out=tfplan \
+            -var-file=../common.tfvars \
+            -var-file="vars/common.tfvars"
+            -var-file="vars/${ENVIRONMENT}.tfvars"
 
       - name: Terraform apply
         if: inputs.apply

@@ -23,7 +23,7 @@ jobs:
 
     env:
       ENVIRONMENT: beta
-      AWS_REGION: ${{ env.AWS_REGION }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
       TF_VAR_ecr_registry: ${{ vars.ECR_REGISTRY }}

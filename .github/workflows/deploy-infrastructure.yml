@@ -32,7 +32,7 @@ jobs:
 
     env:
       ENVIRONMENT: ${{ inputs.environment }}
-      AWS_REGION: eu-south-1
+      AWS_REGION: ${{ vars.AWS_REGION }}
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
       TF_VAR_ecr_registry: ${{ vars.ECR_REGISTRY }}
@@ -58,6 +58,7 @@ jobs:
         run: |
           terraform plan -out=tfplan \
             -var-file=../common.tfvars \
+            -var-file="vars/common.tfvars"
             -var-file="vars/${ENVIRONMENT}.tfvars"
 
       - name: Terraform apply
