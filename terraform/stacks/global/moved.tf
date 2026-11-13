@@ -238,3 +238,18 @@ moved {
   from = github_actions_secret.infra_repo_token["frontend"]
   to   = module.service_gh_repository["frontend"].github_actions_secret.infra_repo_aws_region["INFRA_REPO_TOKEN"]
 }
+
+moved {
+  from = github_actions_variable.aws_region["admin"]
+  to   = module.service_gh_repository["admin"].github_actions_variable.aws_region
+}
+
+moved {
+  from = github_actions_variable.aws_region["api"]
+  to   = module.service_gh_repository["api"].github_actions_variable.aws_region
+}
+
+moved {
+  from = github_actions_variable.aws_region["frontend"]
+  to   = module.service_gh_repository["frontend"].github_actions_variable.aws_region
+}
