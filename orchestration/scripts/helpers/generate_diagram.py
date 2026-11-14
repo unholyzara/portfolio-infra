@@ -1,24 +1,18 @@
+import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).resolve().parent.parent.parent.parent
-ORCHESTRATION_DIR = ROOT / "orchestration"
-COMPOSE_FILE = ORCHESTRATION_DIR / "docker-compose.yml"
-NGINX_CONF = ORCHESTRATION_DIR / "nginx" / "nginx.conf"
-OUT_DIR = ORCHESTRATION_DIR / "diagram"
+ROOT = Path(__file__).resolve().parent.parent
+COMPOSE_FILE = ROOT / "docker-compose.yml"
+NGINX_CONF = ROOT / "nginx" / "nginx.conf"
+OUT_DIR = ROOT / "diagram"
 ENTRYPOINT = "nginx"
 PUBLIC_DOMAIN = "unholyzara.dev"
-EC2_LABEL = "EC2 spot · Docker Compose"
-GROUPS = {
-    "edge": "DNS",
-    "config": "Config e registry",
-    "data": "Storage",
-    "ops": "Monitoring",
-}
+HOST_LABEL = "EC2 spot · Docker Compose"
+PLATFORM_KINDS = {"client", "aws"}
 PROXY_TARGET = re.compile(r"(?:proxy_pass|set\s+\$\w+)\s+http://([\w-]+)")
 
 
@@ -70,8 +64,8 @@ def validate_platform(services, platform):
     for name in sorted(nodes.keys() & services.keys()):
         errors.append(f"{name}: defined both as service and platform node")
     for name, node in nodes.items():
-        if node.get("group") not in GROUPS:
-            errors.append(f"{name}: unknown group {node.get('group')}")
+        if node.get("kind") not in PLATFORM_KINDS:
+            errors.append(f"{name}: unknown kind {node.get('kind')}")
     for edge in platform.get("edges", []):
         if len(edge) != 3:
             errors.append(f"edge {edge}: expected [source, target, label]")
@@ -82,74 +76,69 @@ def validate_platform(services, platform):
     return errors
 
 
-def q(value):
-    return f'"{value}"'
-
-
-def service_node(name, service):
-    diagram = service["x-diagram"]
-    profiles = service.get("profiles", [])
-    label = f'{name}\\n{diagram["stack"]}'
-    classes = [diagram["kind"]]
-    attrs = []
-    if profiles:
-        label += f'\\nprofile: {", ".join(profiles)}'
-        classes.append("optional")
-        attrs.append('style="filled,dashed"')
-    attrs.append(f"label={q(label)}")
-    attrs.append(f'class="{" ".join(classes)}"')
-    return f'{q(name)} [{", ".join(attrs)}];'
-
-
-def build_dot(services, platform):
-    nodes = platform.get("nodes", {})
-    lines = [
-        "digraph architecture {",
-        "rankdir=LR;",
-        'bgcolor="transparent";',
-        'graph [fontname="Helvetica-Bold", penwidth=3];',
-        'node [shape=box, style=filled, penwidth=3, fontname="Helvetica-Bold"];',
-        "edge [penwidth=2];",
-        f'{q("browser")} [label="Browser", class="platform"];',
-        f'{q("browser")} -> {q(ENTRYPOINT)};',
-        "subgraph cluster_ec2 {",
-        f"label={q(EC2_LABEL)};",
-    ]
-    for name, service in services.items():
-        lines.append(service_node(name, service))
-    lines.append("}")
-    for group, title in GROUPS.items():
-        members = {n: v for n, v in nodes.items() if v["group"] == group}
-        if not members:
+def validate_positions(services, platform):
+    errors = []
+    seen = {}
+    entries = [(name, service["x-diagram"]) for name, service in services.items()]
+    entries += list(platform.get("nodes", {}).items())
+    for name, entry in entries:
+        position = entry.get("position")
+        if not isinstance(position, list) or len(position) != 2:
+            errors.append(f"{name}: position must be [col, row]")
             continue
-        lines.append(f"subgraph cluster_{group} {{")
-        lines.append(f"label={q(title)};")
-        for name, node in members.items():
-            lines.append(f'{q(name)} [label={q(node["label"])}, class="cloud"];')
-        lines.append("}")
+        key = tuple(position)
+        if key in seen:
+            errors.append(f"{name}: same position as {seen[key]}")
+        seen[key] = name
+    return errors
+
+
+def build_graph(services, platform):
+    nodes = []
+    edges = []
     for name, service in services.items():
         diagram = service["x-diagram"]
-        public = diagram.get("public", [])
-        if public:
-            label = "\\n".join(public).replace("DOMAIN", PUBLIC_DOMAIN)
-            lines.append(f"{q(ENTRYPOINT)} -> {q(name)} [label={q(label)}];")
+        hosts = [host.replace("DOMAIN", PUBLIC_DOMAIN) for host in diagram.get("public", [])]
+        nodes.append(
+            {
+                "id": name,
+                "label": name,
+                "stack": diagram["stack"],
+                "origin": "container",
+                "kind": diagram["kind"],
+                "position": diagram["position"],
+                "profiles": service.get("profiles", []),
+                "hosts": hosts,
+                "uses": diagram.get("uses", []),
+            }
+        )
+        if hosts:
+            edges.append({"from": ENTRYPOINT, "to": name, "label": None})
         for target in diagram.get("calls", []):
-            lines.append(f"{q(name)} -> {q(target)};")
+            edges.append({"from": name, "to": target, "label": None})
+    for name, node in platform.get("nodes", {}).items():
+        nodes.append(
+            {
+                "id": name,
+                "label": node["label"],
+                "stack": node.get("stack", ""),
+                "origin": node["kind"],
+                "kind": node["kind"],
+                "position": node["position"],
+                "profiles": [],
+                "hosts": [],
+                "uses": [],
+            }
+        )
     for source, target, label in platform.get("edges", []):
-        lines.append(f"{q(source)} -> {q(target)} [label={q(label)}];")
-    lines.append("}")
-    return "\n".join(lines) + "\n"
+        edges.append({"from": source, "to": target, "label": label})
+    return {"host": HOST_LABEL, "nodes": nodes, "edges": edges}
 
 
-def render(dot_source, out_dir):
+def render(graph, out_dir):
     out_dir.mkdir(exist_ok=True)
-    (out_dir / "architecture.dot").write_text(dot_source)
-    subprocess.run(
-        ["dot", "-Tsvg", "-o", str(out_dir / "architecture.svg")],
-        input=dot_source,
-        text=True,
-        check=True,
-    )
+    text = json.dumps(graph, indent=2, ensure_ascii=False) + "\n"
+    (out_dir / "architecture.json").write_text(text)
 
 
 if __name__ == "__main__":
@@ -157,9 +146,10 @@ if __name__ == "__main__":
     errors = (
         validate(services)
         + validate_platform(services, platform)
+        + validate_positions(services, platform)
         + validate_public(services, proxied_services(NGINX_CONF))
     )
     if errors:
         raise SystemExit("\n".join(errors))
     if "--check" not in sys.argv:
-        render(build_dot(services, platform), OUT_DIR)
+        render(build_graph(services, platform), OUT_DIR)

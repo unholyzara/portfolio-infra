@@ -22,6 +22,7 @@ services:
     x-diagram:
       kind: platform
       stack: reverse proxy
+      position: [ 1, 2 ]
 
   frontend:
     image: ${ECR_REGISTRY}/portfolio-frontend:${FRONTEND_TAG}
@@ -36,6 +37,8 @@ services:
       kind: frontend
       stack: Angular
       public: [ DOMAIN ]
+      uses: [ ECR ]
+      position: [ 2, 0 ]
 
   admin:
     image: ${ECR_REGISTRY}/portfolio-admin:${ADMIN_TAG}
@@ -52,6 +55,8 @@ services:
       kind: frontend
       stack: React
       public: [ admin.DOMAIN ]
+      position: [ 2, 1 ]
+      uses: [ ECR ]
 
   api:
     image: ${ECR_REGISTRY}/portfolio-api:${API_TAG}
@@ -71,6 +76,8 @@ services:
       stack: Django + DRF
       public: [ DOMAIN/api, admin.DOMAIN/api ]
       calls: [ postgres ]
+      position: [ 2, 2 ]
+      uses: [ ECR, SSM ]
 
   postgres:
     image: postgres:16
@@ -92,6 +99,7 @@ services:
     x-diagram:
       kind: database
       stack: PostgreSQL 16
+      position: [ 3, 2 ]
 
   backup:
     build: ./extra_services/backup
@@ -110,6 +118,7 @@ services:
       kind: job
       stack: Backup su S3
       calls: [ postgres ]
+      position: [ 3, 1 ]
 
   grafana:
     image: grafana/grafana:latest
@@ -130,6 +139,7 @@ services:
       kind: monitoring
       stack: Grafana
       public: [ grafana.DOMAIN ]
+      position: [ 2, 3 ]
 
 volumes:
   postgres-data:
@@ -138,30 +148,12 @@ volumes:
 
 x-platform:
   nodes:
-    route53:
-      label: Route 53
-      group: edge
-      terraform: aws_route53_record
-    ecr:
-      label: ECR
-      group: config
-      terraform: aws_ecr_repository
-    ssm:
-      label: SSM Parameter Store
-      group: config
-      terraform: aws_ssm_parameter
-    s3_backup:
-      label: S3 backup
-      group: data
-      terraform: aws_s3_bucket
-    cloudwatch:
-      label: CloudWatch
-      group: ops
+    browser: { label: Browser, kind: client, position: [ 0, 2 ] }
+    route53: { label: Route 53, stack: DNS, kind: aws, position: [ 0, 3 ] }
+    s3_backup: { label: S3, stack: backup bucket, kind: aws, position: [ 4, 1 ] }
+    cloudwatch: { label: CloudWatch, stack: metrics, kind: aws, position: [ 4, 3 ] }
   edges:
-    - [ route53, nginx, DNS ]
-    - [ ecr, frontend, image pull ]
-    - [ ecr, admin, image pull ]
-    - [ ecr, api, image pull ]
-    - [ ssm, api, secrets al boot ]
+    - [ browser, nginx, HTTPS ]
+    - [ browser, route53, DNS ]
     - [ backup, s3_backup, dump ]
-    - [ grafana, cloudwatch, metriche ]
+    - [ grafana, cloudwatch, metrics ]

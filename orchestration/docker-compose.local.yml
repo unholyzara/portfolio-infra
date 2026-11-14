@@ -1,38 +1,39 @@
 name: portfolio
 services:
-  # nginx:
-  #   image: nginx:alpine
-  #   restart: unless-stopped
-  #   ports:
-  #     - "80:80"
-  #     - "443:443"
-  #   volumes:
-  #     - ./nginx/nginx.local.conf:/etc/nginx/nginx.conf:ro
-  #     - certbot-certs:/etc/letsencrypt:ro
-  #   depends_on:
-  #     - frontend
-  #     # - admin
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.local.conf:/etc/nginx/nginx.conf:ro
+      - certbot-certs:/etc/letsencrypt:ro
+      - ./diagram:/usr/share/nginx/diagram:ro
+    depends_on:
+      - api
+      - frontend
 
-  # frontend:
-  #   build:
-  #     context: ../portfolio-frontend
+  frontend:
+    build:
+      context: ../../portfolio-frontend
 
   # admin:
   #   build:
-  #     context: ../portfolio-admin
+  #     context: ../../portfolio-admin
   #   image: null
   #   ports:
   #     - "8000:8000"
 
-  # api:
-  #   build:
-  #     context: ../portfolio-api
-  #   ports:
-  #     - "8001:8000"
-  #   env_file:
-  #     - ./services/api/${ENVIRONMENT}.env
-  #   depends_on:
-  #     - postgres
+  api:
+    build:
+      context: ../../portfolio-api
+    ports:
+      - "8001:8000"
+    env_file:
+      - ./services/api/${ENVIRONMENT}.env
+    depends_on:
+      - postgres
 
   postgres:
     image: postgres:16
