@@ -11,12 +11,17 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./diagram:/usr/share/nginx/diagram:ro
       - certbot-certs:/etc/letsencrypt:ro
     depends_on:
       - frontend
-      - admin
+      - api
     x-repository-info:
       deployable: false
+    x-subdomain: null
+    x-diagram:
+      kind: platform
+      stack: reverse proxy
 
   frontend:
     image: ${ECR_REGISTRY}/portfolio-frontend:${FRONTEND_TAG}
@@ -26,6 +31,11 @@ services:
       repo_description: "Portfolio frontend — Angular"
       deployable: true
       visibility: public
+    x-subdomain: null
+    x-diagram:
+      kind: frontend
+      stack: Angular
+      public: [ DOMAIN ]
 
   admin:
     image: ${ECR_REGISTRY}/portfolio-admin:${ADMIN_TAG}
@@ -34,9 +44,14 @@ services:
       - ./services/admin/${ENVIRONMENT}.env
     x-repository-info:
       type: admin
-      repo_description: "Portfolio admin — Django backoffice"
+      repo_description: "Portfolio admin — React backoffice"
       deployable: true
       visibility: public
+    x-subdomain: admin
+    x-diagram:
+      kind: frontend
+      stack: React
+      public: [ admin.DOMAIN ]
 
   api:
     image: ${ECR_REGISTRY}/portfolio-api:${API_TAG}
@@ -50,6 +65,12 @@ services:
       repo_description: "Portfolio API service — Django"
       deployable: true
       visibility: public
+    x-subdomain: null
+    x-diagram:
+      kind: backend
+      stack: Django + DRF
+      public: [ DOMAIN/api, admin.DOMAIN/api ]
+      calls: [ postgres ]
 
   postgres:
     image: postgres:16
@@ -67,6 +88,10 @@ services:
       retries: 30
     x-repository-info:
       deployable: false
+    x-subdomain: null
+    x-diagram:
+      kind: database
+      stack: PostgreSQL 16
 
   backup:
     build: ./extra_services/backup
@@ -80,6 +105,11 @@ services:
       PGPASSWORD: ${API_DB_PASSWORD}
     x-repository-info:
       deployable: false
+    x-subdomain: null
+    x-diagram:
+      kind: job
+      stack: Backup su S3
+      calls: [ postgres ]
 
   grafana:
     image: grafana/grafana:latest
@@ -87,7 +117,7 @@ services:
     profiles:
       - monitoring
     environment:
-      - GF_SERVER_ROOT_URL=https://grafana.admin.unholyzara.dev
+      - GF_SERVER_ROOT_URL=https://grafana.DOMAIN
       - GF_AUTH_ANONYMOUS_ENABLED=false
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
     volumes:
@@ -95,20 +125,43 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
     x-repository-info:
       deployable: false
-
-  portainer:
-    image: portainer/portainer-ce:latest
-    restart: unless-stopped
-    profiles:
-      - monitoring
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - portainer-data:/data
-    x-repository-info:
-      deployable: false
+    x-subdomain: grafana
+    x-diagram:
+      kind: monitoring
+      stack: Grafana
+      public: [ grafana.DOMAIN ]
 
 volumes:
   postgres-data:
   grafana-data:
-  portainer-data:
   certbot-certs:
+
+x-platform:
+  nodes:
+    route53:
+      label: Route 53
+      group: edge
+      terraform: aws_route53_record
+    ecr:
+      label: ECR
+      group: config
+      terraform: aws_ecr_repository
+    ssm:
+      label: SSM Parameter Store
+      group: config
+      terraform: aws_ssm_parameter
+    s3_backup:
+      label: S3 backup
+      group: data
+      terraform: aws_s3_bucket
+    cloudwatch:
+      label: CloudWatch
+      group: ops
+  edges:
+    - [ route53, nginx, DNS ]
+    - [ ecr, frontend, image pull ]
+    - [ ecr, admin, image pull ]
+    - [ ecr, api, image pull ]
+    - [ ssm, api, secrets al boot ]
+    - [ backup, s3_backup, dump ]
+    - [ grafana, cloudwatch, metriche ]

@@ -10,7 +10,7 @@ systemctl enable --now crond
 
 DOCKER_COMPOSE_VERSION="2.27.0"
 mkdir -p /usr/local/lib/docker/cli-plugins
-curl -SL "https://github.com/docker/compose/releases/download/v$${DOCKER_COMPOSE_VERSION}/docker-compose-linux-aarch64" \
+curl -fSL "https://github.com/docker/compose/releases/download/v$${DOCKER_COMPOSE_VERSION}/docker-compose-linux-aarch64" \
   -o /usr/local/lib/docker/cli-plugins/docker-compose
 chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
@@ -73,3 +73,13 @@ sudo -u deploy docker compose --profile monitoring up -d
 %{ else ~}
 sudo -u deploy docker compose up -d
 %{ endif ~}
+
+LAZYDOCKER_VERSION="0.24.1"
+LAZYDOCKER_BASE="https://github.com/jesseduffield/lazydocker/releases/download/v$${LAZYDOCKER_VERSION}"
+LAZYDOCKER_ARCHIVE="lazydocker_$${LAZYDOCKER_VERSION}_Linux_arm64.tar.gz"
+curl -fsSL -o "/tmp/$${LAZYDOCKER_ARCHIVE}" "$${LAZYDOCKER_BASE}/$${LAZYDOCKER_ARCHIVE}"
+curl -fsSL -o /tmp/lazydocker_checksums.txt "$${LAZYDOCKER_BASE}/checksums.txt"
+(cd /tmp && grep "$${LAZYDOCKER_ARCHIVE}" lazydocker_checksums.txt | sha256sum -c -)
+tar -xzf "/tmp/$${LAZYDOCKER_ARCHIVE}" -C /usr/local/bin lazydocker
+chmod 0755 /usr/local/bin/lazydocker
+rm -f "/tmp/$${LAZYDOCKER_ARCHIVE}" /tmp/lazydocker_checksums.txt

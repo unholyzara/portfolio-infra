@@ -13,7 +13,7 @@ resource "aws_cloudwatch_event_connection" "github" {
 resource "aws_cloudwatch_event_api_destination" "destroy_beta" {
   name                             = "${var.project_name}-destroy-beta"
   connection_arn                   = aws_cloudwatch_event_connection.github.arn
-  invocation_endpoint              = "https://api.github.com/repos/${var.github_org}/${var.github_repository}/actions/workflows/${github_destroy_pipeline_name}/dispatches"
+  invocation_endpoint              = "https://api.github.com/repos/${var.github_org}/${var.github_repository}/actions/workflows/${var.github_destroy_pipeline_name}/dispatches"
   http_method                      = "POST"
   invocation_rate_limit_per_second = 1
 }
