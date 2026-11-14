@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent.parent
 COMPOSE_FILE = ROOT / "docker-compose.yml"
 NGINX_CONF = ROOT / "nginx" / "nginx.conf"
 OUT_DIR = ROOT / "diagram"
