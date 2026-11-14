@@ -5,10 +5,10 @@ from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).resolve().parent.parent
-COMPOSE_FILE = ROOT / "docker-compose.yml"
-NGINX_CONF = ROOT / "nginx" / "nginx.conf"
-OUT_DIR = ROOT / "diagram"
+ORCHESTRATION = Path(__file__).resolve().parent.parent.parent
+COMPOSE_FILE = ORCHESTRATION / "docker-compose.yml"
+NGINX_CONF = ORCHESTRATION / "nginx" / "nginx.conf"
+OUT_DIR = ORCHESTRATION / "diagram"
 ENTRYPOINT = "nginx"
 PUBLIC_DOMAIN = "unholyzara.dev"
 HOST_LABEL = "EC2 spot · Docker Compose"
