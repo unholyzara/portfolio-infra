@@ -1,4 +1,7 @@
 name: portfolio
+x-environments:
+  - name: beta
+  - name: prd
 services:
   nginx:
     image: nginx:alpine
@@ -12,16 +15,28 @@ services:
     depends_on:
       - frontend
       - admin
+    x-repository-info:
+      deployable: false
 
   frontend:
     image: ${ECR_REGISTRY}/portfolio-frontend:${FRONTEND_TAG}
     restart: unless-stopped
+    x-repository-info:
+      type: frontend
+      repo_description: "Portfolio frontend — Angular"
+      deployable: true
+      visibility: public
 
   admin:
     image: ${ECR_REGISTRY}/portfolio-admin:${ADMIN_TAG}
     restart: unless-stopped
     env_file:
       - ./services/admin/${ENVIRONMENT}.env
+    x-repository-info:
+      type: admin
+      repo_description: "Portfolio admin — Django backoffice"
+      deployable: true
+      visibility: public
 
   api:
     image: ${ECR_REGISTRY}/portfolio-api:${API_TAG}
@@ -30,6 +45,11 @@ services:
       - ./services/api/${ENVIRONMENT}.env
     depends_on:
       - postgres
+    x-repository-info:
+      type: backend
+      repo_description: "Portfolio API service — Django"
+      deployable: true
+      visibility: public
 
   postgres:
     image: postgres:16
@@ -45,6 +65,8 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
+    x-repository-info:
+      deployable: false
 
   backup:
     build: ./extra_services/backup
@@ -56,6 +78,8 @@ services:
       - ./env/backup/prd.env
     environment:
       PGPASSWORD: ${API_DB_PASSWORD}
+    x-repository-info:
+      deployable: false
 
   grafana:
     image: grafana/grafana:latest
@@ -69,6 +93,8 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    x-repository-info:
+      deployable: false
 
   portainer:
     image: portainer/portainer-ce:latest
@@ -78,6 +104,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer-data:/data
+    x-repository-info:
+      deployable: false
 
 volumes:
   postgres-data:

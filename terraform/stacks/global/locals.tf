@@ -1,9 +1,16 @@
 locals {
-  services_file = yamldecode(file("${path.module}/config/services.yml"))
-  services_data = local.services_file["services"]
-  environments  = local.services_file["environments"]
+  docker_compose_file = yamldecode(file("${path.module}/../../../orchestration/docker-compose.yml"))
+  services_data       = local.docker_compose_file["services"]
+  environments        = local.docker_compose_file["x-environments"]
 
-  services = { for s in local.services_data : s.name => s }
+  services = {
+    for name, service in local.services_data :
+    name => merge(
+      { name = name },
+      service["x-repository-info"]
+    )
+    if try(service["x-repository-info"].deployable, false)
+  }
 
   parameters = yamldecode(file("${path.module}/config/parameters.yml"))["parameters"]
   ssm_parameters = {
