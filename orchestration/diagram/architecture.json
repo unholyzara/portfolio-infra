@@ -1,66 +1,99 @@
 {
   "host": "EC2 spot · Docker Compose",
+  "project": "portfolio",
+  "environments": [
+    {
+      "name": "beta"
+    },
+    {
+      "name": "prd"
+    }
+  ],
   "nodes": [
     {
       "id": "nginx",
       "label": "nginx",
-      "stack": "reverse proxy",
       "origin": "container",
       "kind": "platform",
       "position": [
         1,
         2
       ],
+      "stack": "reverse proxy",
       "profiles": [],
       "hosts": [],
-      "uses": []
+      "uses": [],
+      "metadata": {
+        "subdomain": null,
+        "repository": {
+          "deployable": false
+        }
+      }
     },
     {
       "id": "frontend",
       "label": "frontend",
-      "stack": "Angular",
       "origin": "container",
       "kind": "frontend",
       "position": [
         2,
         0
       ],
+      "stack": "Angular",
       "profiles": [],
       "hosts": [
         "unholyzara.dev"
       ],
       "uses": [
         "ECR"
-      ]
+      ],
+      "metadata": {
+        "subdomain": null,
+        "repository": {
+          "type": "frontend",
+          "repo_description": "Portfolio frontend — Angular",
+          "deployable": true,
+          "visibility": "public"
+        }
+      }
     },
     {
       "id": "admin",
       "label": "admin",
-      "stack": "React",
       "origin": "container",
       "kind": "frontend",
       "position": [
         2,
         1
       ],
+      "stack": "React",
       "profiles": [],
       "hosts": [
         "admin.unholyzara.dev"
       ],
       "uses": [
         "ECR"
-      ]
+      ],
+      "metadata": {
+        "subdomain": "admin",
+        "repository": {
+          "type": "admin",
+          "repo_description": "Portfolio admin — React backoffice",
+          "deployable": true,
+          "visibility": "public"
+        }
+      }
     },
     {
       "id": "api",
       "label": "api",
-      "stack": "Django + DRF",
       "origin": "container",
       "kind": "backend",
       "position": [
         2,
         2
       ],
+      "stack": "Django + DRF",
       "profiles": [],
       "hosts": [
         "unholyzara.dev/api",
@@ -69,163 +102,475 @@
       "uses": [
         "ECR",
         "SSM"
-      ]
+      ],
+      "metadata": {
+        "subdomain": null,
+        "repository": {
+          "type": "backend",
+          "repo_description": "Portfolio API service — Django",
+          "deployable": true,
+          "visibility": "public"
+        }
+      }
     },
     {
       "id": "postgres",
       "label": "postgres",
-      "stack": "PostgreSQL 16",
       "origin": "container",
       "kind": "database",
       "position": [
         3,
         2
       ],
+      "stack": "PostgreSQL 16",
       "profiles": [],
       "hosts": [],
-      "uses": []
+      "uses": [],
+      "metadata": {
+        "subdomain": null,
+        "repository": {
+          "deployable": false
+        }
+      }
     },
     {
       "id": "backup",
       "label": "backup",
-      "stack": "Backup su S3",
       "origin": "container",
       "kind": "job",
       "position": [
         3,
         1
       ],
+      "stack": "Backup su S3",
       "profiles": [
         "backup"
       ],
       "hosts": [],
-      "uses": []
+      "uses": [],
+      "metadata": {
+        "subdomain": null,
+        "repository": {
+          "deployable": false
+        }
+      }
     },
     {
       "id": "grafana",
       "label": "grafana",
-      "stack": "Grafana",
       "origin": "container",
       "kind": "monitoring",
       "position": [
         2,
         3
       ],
+      "stack": "Grafana",
       "profiles": [
         "monitoring"
       ],
       "hosts": [
         "grafana.unholyzara.dev"
       ],
-      "uses": []
+      "uses": [],
+      "metadata": {
+        "subdomain": "grafana",
+        "repository": {
+          "deployable": false
+        }
+      }
     },
     {
-      "id": "browser",
-      "label": "Browser",
-      "stack": "",
-      "origin": "client",
-      "kind": "client",
-      "position": [
-        0,
-        2
-      ],
-      "profiles": [],
-      "hosts": [],
-      "uses": []
-    },
-    {
-      "id": "route53",
+      "id": "dns",
       "label": "Route 53",
-      "stack": "DNS",
       "origin": "aws",
-      "kind": "aws",
+      "kind": "dns",
+      "position": [
+        4,
+        5
+      ],
+      "stack": "AWS Route 53",
+      "modules": [
+        "dns"
+      ],
+      "resource_type": null,
+      "metadata": {
+        "grouped": true,
+        "resources": [
+          {
+            "address": "module.dns[0].aws_route53_record.container_subdomain[\"admin\"]",
+            "type": "aws_route53_record",
+            "module": "dns"
+          },
+          {
+            "address": "module.dns[0].aws_route53_record.container_subdomain[\"grafana\"]",
+            "type": "aws_route53_record",
+            "module": "dns"
+          },
+          {
+            "address": "module.dns[0].aws_route53_record.frontend",
+            "type": "aws_route53_record",
+            "module": "dns"
+          },
+          {
+            "address": "module.dns[0].aws_route53_zone.main",
+            "type": "aws_route53_zone",
+            "module": "dns"
+          }
+        ]
+      }
+    },
+    {
+      "id": "iam",
+      "label": "IAM",
+      "origin": "aws",
+      "kind": "security",
       "position": [
         0,
-        3
+        5
       ],
-      "profiles": [],
-      "hosts": [],
-      "uses": []
+      "stack": "AWS IAM",
+      "modules": [
+        "ec2"
+      ],
+      "resource_type": null,
+      "metadata": {
+        "grouped": true,
+        "resources": [
+          {
+            "address": "module.ec2[0].aws_iam_instance_profile.ec2",
+            "type": "aws_iam_instance_profile",
+            "module": "ec2"
+          },
+          {
+            "address": "module.ec2[0].aws_iam_role.ec2",
+            "type": "aws_iam_role",
+            "module": "ec2"
+          },
+          {
+            "address": "module.ec2[0].aws_iam_role_policy.ec2",
+            "type": "aws_iam_role_policy",
+            "module": "ec2"
+          },
+          {
+            "address": "module.ec2[0].aws_iam_role_policy_attachment.ssm_core",
+            "type": "aws_iam_role_policy_attachment",
+            "module": "ec2"
+          }
+        ]
+      }
     },
     {
-      "id": "s3_backup",
-      "label": "S3",
-      "stack": "backup bucket",
+      "id": "module.ec2[0].aws_eip.main",
+      "label": "Elastic IP",
       "origin": "aws",
-      "kind": "aws",
+      "kind": "network",
       "position": [
-        4,
-        1
+        3,
+        4
       ],
-      "profiles": [],
-      "hosts": [],
-      "uses": []
+      "stack": "AWS Elastic IP",
+      "modules": [
+        "ec2"
+      ],
+      "resource_type": "aws_eip",
+      "metadata": {
+        "grouped": false,
+        "resources": [
+          {
+            "address": "module.ec2[0].aws_eip.main",
+            "type": "aws_eip",
+            "module": "ec2"
+          }
+        ]
+      }
     },
     {
-      "id": "cloudwatch",
-      "label": "CloudWatch",
-      "stack": "metrics",
+      "id": "module.ec2[0].aws_eip_association.main",
+      "label": "EIP Association",
       "origin": "aws",
-      "kind": "aws",
+      "kind": "network",
       "position": [
-        4,
-        3
+        2,
+        4
       ],
-      "profiles": [],
-      "hosts": [],
-      "uses": []
+      "stack": "AWS EIP Association",
+      "modules": [
+        "ec2"
+      ],
+      "resource_type": "aws_eip_association",
+      "metadata": {
+        "grouped": false,
+        "resources": [
+          {
+            "address": "module.ec2[0].aws_eip_association.main",
+            "type": "aws_eip_association",
+            "module": "ec2"
+          }
+        ]
+      }
+    },
+    {
+      "id": "module.ec2[0].aws_spot_instance_request.main",
+      "label": "EC2 Spot",
+      "origin": "aws",
+      "kind": "compute",
+      "position": [
+        1,
+        4
+      ],
+      "stack": "AWS EC2 Spot",
+      "modules": [
+        "ec2"
+      ],
+      "resource_type": "aws_spot_instance_request",
+      "metadata": {
+        "grouped": false,
+        "resources": [
+          {
+            "address": "module.ec2[0].aws_spot_instance_request.main",
+            "type": "aws_spot_instance_request",
+            "module": "ec2"
+          }
+        ]
+      }
+    },
+    {
+      "id": "network",
+      "label": "VPC",
+      "origin": "aws",
+      "kind": "network",
+      "position": [
+        0,
+        4
+      ],
+      "stack": "AWS VPC",
+      "modules": [
+        "vpc"
+      ],
+      "resource_type": null,
+      "metadata": {
+        "grouped": true,
+        "resources": [
+          {
+            "address": "module.vpc[0].aws_internet_gateway.main",
+            "type": "aws_internet_gateway",
+            "module": "vpc"
+          },
+          {
+            "address": "module.vpc[0].aws_route_table.public",
+            "type": "aws_route_table",
+            "module": "vpc"
+          },
+          {
+            "address": "module.vpc[0].aws_route_table_association.public",
+            "type": "aws_route_table_association",
+            "module": "vpc"
+          },
+          {
+            "address": "module.vpc[0].aws_security_group.ec2",
+            "type": "aws_security_group",
+            "module": "vpc"
+          },
+          {
+            "address": "module.vpc[0].aws_subnet.public",
+            "type": "aws_subnet",
+            "module": "vpc"
+          },
+          {
+            "address": "module.vpc[0].aws_vpc.main",
+            "type": "aws_vpc",
+            "module": "vpc"
+          }
+        ]
+      }
     }
   ],
   "edges": [
     {
       "from": "nginx",
       "to": "frontend",
-      "label": null
-    },
-    {
-      "from": "nginx",
-      "to": "admin",
-      "label": null
+      "label": null,
+      "types": [
+        "depends_on"
+      ]
     },
     {
       "from": "nginx",
       "to": "api",
-      "label": null
+      "label": null,
+      "types": [
+        "depends_on"
+      ]
     },
     {
-      "from": "api",
-      "to": "postgres",
-      "label": null
-    },
-    {
-      "from": "backup",
-      "to": "postgres",
-      "label": null
+      "from": "nginx",
+      "to": "admin",
+      "label": null,
+      "types": [
+        "depends_on"
+      ]
     },
     {
       "from": "nginx",
       "to": "grafana",
-      "label": null
+      "label": null,
+      "types": [
+        "depends_on"
+      ]
     },
     {
-      "from": "browser",
-      "to": "nginx",
-      "label": "HTTPS"
-    },
-    {
-      "from": "browser",
-      "to": "route53",
-      "label": "DNS"
+      "from": "api",
+      "to": "postgres",
+      "label": null,
+      "types": [
+        "depends_on",
+        "calls"
+      ]
     },
     {
       "from": "backup",
-      "to": "s3_backup",
-      "label": "dump"
+      "to": "postgres",
+      "label": null,
+      "types": [
+        "depends_on",
+        "calls"
+      ]
+    },
+    {
+      "from": "iam",
+      "to": "module.ec2[0].aws_spot_instance_request.main",
+      "types": [
+        "terraform_dependency"
+      ],
+      "metadata": {
+        "terraform_dependencies": [
+          {
+            "source": "module.ec2[0].aws_spot_instance_request.main",
+            "target": "module.ec2[0].aws_iam_instance_profile.ec2"
+          }
+        ]
+      }
+    },
+    {
+      "from": "module.ec2[0].aws_eip.main",
+      "to": "dns",
+      "types": [
+        "terraform_dependency"
+      ],
+      "metadata": {
+        "terraform_dependencies": [
+          {
+            "source": "module.dns[0].aws_route53_record.container_subdomain[\"admin\"]",
+            "target": "module.ec2[0].aws_eip.main"
+          },
+          {
+            "source": "module.dns[0].aws_route53_record.container_subdomain[\"grafana\"]",
+            "target": "module.ec2[0].aws_eip.main"
+          },
+          {
+            "source": "module.dns[0].aws_route53_record.frontend",
+            "target": "module.ec2[0].aws_eip.main"
+          }
+        ]
+      }
+    },
+    {
+      "from": "module.ec2[0].aws_eip.main",
+      "to": "module.ec2[0].aws_eip_association.main",
+      "types": [
+        "terraform_dependency"
+      ],
+      "metadata": {
+        "terraform_dependencies": [
+          {
+            "source": "module.ec2[0].aws_eip_association.main",
+            "target": "module.ec2[0].aws_eip.main"
+          }
+        ]
+      }
+    },
+    {
+      "from": "module.ec2[0].aws_spot_instance_request.main",
+      "to": "module.ec2[0].aws_eip_association.main",
+      "types": [
+        "terraform_dependency"
+      ],
+      "metadata": {
+        "terraform_dependencies": [
+          {
+            "source": "module.ec2[0].aws_eip_association.main",
+            "target": "module.ec2[0].aws_spot_instance_request.main"
+          }
+        ]
+      }
+    },
+    {
+      "from": "network",
+      "to": "module.ec2[0].aws_spot_instance_request.main",
+      "types": [
+        "terraform_dependency"
+      ],
+      "metadata": {
+        "terraform_dependencies": [
+          {
+            "source": "module.ec2[0].aws_spot_instance_request.main",
+            "target": "module.vpc[0].aws_security_group.ec2"
+          },
+          {
+            "source": "module.ec2[0].aws_spot_instance_request.main",
+            "target": "module.vpc[0].aws_subnet.public"
+          }
+        ]
+      }
+    },
+    {
+      "from": "nginx",
+      "to": "module.ec2[0].aws_spot_instance_request.main",
+      "types": [
+        "runs_on"
+      ]
+    },
+    {
+      "from": "frontend",
+      "to": "module.ec2[0].aws_spot_instance_request.main",
+      "types": [
+        "runs_on"
+      ]
+    },
+    {
+      "from": "admin",
+      "to": "module.ec2[0].aws_spot_instance_request.main",
+      "types": [
+        "runs_on"
+      ]
+    },
+    {
+      "from": "api",
+      "to": "module.ec2[0].aws_spot_instance_request.main",
+      "types": [
+        "runs_on"
+      ]
+    },
+    {
+      "from": "postgres",
+      "to": "module.ec2[0].aws_spot_instance_request.main",
+      "types": [
+        "runs_on"
+      ]
+    },
+    {
+      "from": "backup",
+      "to": "module.ec2[0].aws_spot_instance_request.main",
+      "types": [
+        "runs_on"
+      ]
     },
     {
       "from": "grafana",
-      "to": "cloudwatch",
-      "label": "metrics"
+      "to": "module.ec2[0].aws_spot_instance_request.main",
+      "types": [
+        "runs_on"
+      ]
     }
   ]
 }
