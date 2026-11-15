@@ -140,7 +140,3 @@ volumes:
   postgres-data:
   grafana-data:
   certbot-certs:
-
-x-platform:
-  nodes:
-  edges:
