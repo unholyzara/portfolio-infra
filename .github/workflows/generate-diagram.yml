@@ -1,18 +1,121 @@
-name: Generate Architecture Diagram
-on: workflow_dispatch
+name: Architecture diagram
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Non committare, carica solo l'output come artifact"
+        type: boolean
+        default: false
+
 permissions:
   contents: write
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  TF_DIR: terraform/stacks/infrastructure
+  COMPOSE_FILE: orchestration/docker-compose.yml
+  DOMAIN: unholyzara.dev
+  SCRIPTS: orchestration/scripts/helpers/architecture_pipeline
+  OUT: orchestration/scripts/architecture/output
+  FINAL: orchestration/diagram/architecture.json
+
 jobs:
   generate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y graphviz
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - run: pip install pyyaml
-      - run: python orchestration/scripts/helpers/generate_diagram.py
-      - run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@users.noreply.github.com"
-          git add orchestration/diagram/
-          git diff --staged --quiet || git commit -m "Update architecture diagram"
-          git push
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.5
+          terraform_wrapper: false
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_BOOTSTRAP_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # ---------- 1. Terraform ----------
+      - name: Terraform plan, graph, show
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform init -backend-config="key=infrastructure/prd/terraform.tfstate"
+          terraform plan \
+              -input=false \
+              -out=tfplan \
+              -var-file=../common.tfvars \
+              -var-file="vars/common.tfvars" \
+              -var-file="vars/prd.tfvars"
+          terraform graph -plan=tfplan > terraform.dot
+          terraform show -json tfplan > terraform-plan.json
+
+      # ---------- 2. Parser e merge ----------
+      - name: Build services.json, infrastructure.json, architecture.json
+        run: |
+          mkdir -p "$OUT"
+          python "$SCRIPTS/compose_parser.py" \
+            --compose "$COMPOSE_FILE" --domain "$DOMAIN" \
+            --output "$OUT/services.json"
+          python "$SCRIPTS/terraform_parser.py" \
+            --plan "$TF_DIR/terraform-plan.json" \
+            --graph "$TF_DIR/terraform.dot" \
+            --output "$OUT/infrastructure.json"
+          python "$SCRIPTS/architecture_merger.py" \
+            --services "$OUT/services.json" \
+            --infrastructure "$OUT/infrastructure.json" \
+            --output "$OUT/architecture.json"
+
+      # ---------- 3. Posizionamento nodi con Copilot CLI ----------
+      - name: Layout with Copilot CLI
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
+        run: |
+          npm install -g @github/copilot
+          # snapshot pre-Copilot: serve al validatore per verificare che sia cambiato solo `position`
+          cp "$OUT/architecture.json" "$OUT/architecture.generated.json"
+          copilot -p "$(cat "$SCRIPTS/layout_prompt.md")" \
+            -s --allow-tool=write --no-ask-user
+
+      # ---------- 4. Validazione e scrittura del file finale ----------
+      - name: Validate and write final file
+        run: |
+          python "$SCRIPTS/validate_layout.py" \
+            --generated "$OUT/architecture.generated.json" \
+            --edited "$OUT/architecture.json" \
+            --current "$FINAL" \
+            --output "$FINAL"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: architecture-json
+          path: |
+            ${{ env.OUT }}/services.json
+            ${{ env.OUT }}/infrastructure.json
+            ${{ env.OUT }}/architecture.generated.json
+            ${{ env.FINAL }}
+
+      # ---------- 5. Commit del solo file finale ----------
+      - name: Commit
+        if: ${{ !inputs.dry_run }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "$FINAL"
+          if git diff --cached --quiet; then
+            echo "Nessuna modifica a $FINAL, niente commit."
+          else
+            git commit -m "chore(diagram): update architecture.json"
+            git push
+          fi

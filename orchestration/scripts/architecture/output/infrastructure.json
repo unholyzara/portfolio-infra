@@ -1,0 +1,276 @@
+{
+  "project": "portfolio",
+  "terraform_version": "1.7.5",
+  "nodes": [
+    {
+      "id": "dns",
+      "label": "Route 53",
+      "origin": "aws",
+      "kind": "dns",
+      "stack": "AWS Route 53",
+      "modules": [
+        "dns"
+      ],
+      "resource_type": null,
+      "metadata": {
+        "grouped": true,
+        "resources": [
+          {
+            "address": "module.dns[0].aws_route53_record.container_subdomain[\"admin\"]",
+            "type": "aws_route53_record",
+            "module": "dns"
+          },
+          {
+            "address": "module.dns[0].aws_route53_record.container_subdomain[\"grafana\"]",
+            "type": "aws_route53_record",
+            "module": "dns"
+          },
+          {
+            "address": "module.dns[0].aws_route53_record.frontend",
+            "type": "aws_route53_record",
+            "module": "dns"
+          },
+          {
+            "address": "module.dns[0].aws_route53_zone.main",
+            "type": "aws_route53_zone",
+            "module": "dns"
+          }
+        ]
+      }
+    },
+    {
+      "id": "iam",
+      "label": "IAM",
+      "origin": "aws",
+      "kind": "security",
+      "stack": "AWS IAM",
+      "modules": [
+        "ec2"
+      ],
+      "resource_type": null,
+      "metadata": {
+        "grouped": true,
+        "resources": [
+          {
+            "address": "module.ec2[0].aws_iam_instance_profile.ec2",
+            "type": "aws_iam_instance_profile",
+            "module": "ec2"
+          },
+          {
+            "address": "module.ec2[0].aws_iam_role.ec2",
+            "type": "aws_iam_role",
+            "module": "ec2"
+          },
+          {
+            "address": "module.ec2[0].aws_iam_role_policy.ec2",
+            "type": "aws_iam_role_policy",
+            "module": "ec2"
+          },
+          {
+            "address": "module.ec2[0].aws_iam_role_policy_attachment.ssm_core",
+            "type": "aws_iam_role_policy_attachment",
+            "module": "ec2"
+          }
+        ]
+      }
+    },
+    {
+      "id": "module.ec2[0].aws_eip.main",
+      "label": "Elastic IP",
+      "origin": "aws",
+      "kind": "network",
+      "stack": "AWS Elastic IP",
+      "modules": [
+        "ec2"
+      ],
+      "resource_type": "aws_eip",
+      "metadata": {
+        "grouped": false,
+        "resources": [
+          {
+            "address": "module.ec2[0].aws_eip.main",
+            "type": "aws_eip",
+            "module": "ec2"
+          }
+        ]
+      }
+    },
+    {
+      "id": "module.ec2[0].aws_eip_association.main",
+      "label": "EIP Association",
+      "origin": "aws",
+      "kind": "network",
+      "stack": "AWS EIP Association",
+      "modules": [
+        "ec2"
+      ],
+      "resource_type": "aws_eip_association",
+      "metadata": {
+        "grouped": false,
+        "resources": [
+          {
+            "address": "module.ec2[0].aws_eip_association.main",
+            "type": "aws_eip_association",
+            "module": "ec2"
+          }
+        ]
+      }
+    },
+    {
+      "id": "module.ec2[0].aws_spot_instance_request.main",
+      "label": "EC2 Spot",
+      "origin": "aws",
+      "kind": "compute",
+      "stack": "AWS EC2 Spot",
+      "modules": [
+        "ec2"
+      ],
+      "resource_type": "aws_spot_instance_request",
+      "metadata": {
+        "grouped": false,
+        "resources": [
+          {
+            "address": "module.ec2[0].aws_spot_instance_request.main",
+            "type": "aws_spot_instance_request",
+            "module": "ec2"
+          }
+        ]
+      }
+    },
+    {
+      "id": "network",
+      "label": "VPC",
+      "origin": "aws",
+      "kind": "network",
+      "stack": "AWS VPC",
+      "modules": [
+        "vpc"
+      ],
+      "resource_type": null,
+      "metadata": {
+        "grouped": true,
+        "resources": [
+          {
+            "address": "module.vpc[0].aws_internet_gateway.main",
+            "type": "aws_internet_gateway",
+            "module": "vpc"
+          },
+          {
+            "address": "module.vpc[0].aws_route_table.public",
+            "type": "aws_route_table",
+            "module": "vpc"
+          },
+          {
+            "address": "module.vpc[0].aws_route_table_association.public",
+            "type": "aws_route_table_association",
+            "module": "vpc"
+          },
+          {
+            "address": "module.vpc[0].aws_security_group.ec2",
+            "type": "aws_security_group",
+            "module": "vpc"
+          },
+          {
+            "address": "module.vpc[0].aws_subnet.public",
+            "type": "aws_subnet",
+            "module": "vpc"
+          },
+          {
+            "address": "module.vpc[0].aws_vpc.main",
+            "type": "aws_vpc",
+            "module": "vpc"
+          }
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "iam",
+      "to": "module.ec2[0].aws_spot_instance_request.main",
+      "types": [
+        "terraform_dependency"
+      ],
+      "metadata": {
+        "terraform_dependencies": [
+          {
+            "source": "module.ec2[0].aws_spot_instance_request.main",
+            "target": "module.ec2[0].aws_iam_instance_profile.ec2"
+          }
+        ]
+      }
+    },
+    {
+      "from": "module.ec2[0].aws_eip.main",
+      "to": "dns",
+      "types": [
+        "terraform_dependency"
+      ],
+      "metadata": {
+        "terraform_dependencies": [
+          {
+            "source": "module.dns[0].aws_route53_record.container_subdomain[\"admin\"]",
+            "target": "module.ec2[0].aws_eip.main"
+          },
+          {
+            "source": "module.dns[0].aws_route53_record.container_subdomain[\"grafana\"]",
+            "target": "module.ec2[0].aws_eip.main"
+          },
+          {
+            "source": "module.dns[0].aws_route53_record.frontend",
+            "target": "module.ec2[0].aws_eip.main"
+          }
+        ]
+      }
+    },
+    {
+      "from": "module.ec2[0].aws_eip.main",
+      "to": "module.ec2[0].aws_eip_association.main",
+      "types": [
+        "terraform_dependency"
+      ],
+      "metadata": {
+        "terraform_dependencies": [
+          {
+            "source": "module.ec2[0].aws_eip_association.main",
+            "target": "module.ec2[0].aws_eip.main"
+          }
+        ]
+      }
+    },
+    {
+      "from": "module.ec2[0].aws_spot_instance_request.main",
+      "to": "module.ec2[0].aws_eip_association.main",
+      "types": [
+        "terraform_dependency"
+      ],
+      "metadata": {
+        "terraform_dependencies": [
+          {
+            "source": "module.ec2[0].aws_eip_association.main",
+            "target": "module.ec2[0].aws_spot_instance_request.main"
+          }
+        ]
+      }
+    },
+    {
+      "from": "network",
+      "to": "module.ec2[0].aws_spot_instance_request.main",
+      "types": [
+        "terraform_dependency"
+      ],
+      "metadata": {
+        "terraform_dependencies": [
+          {
+            "source": "module.ec2[0].aws_spot_instance_request.main",
+            "target": "module.vpc[0].aws_security_group.ec2"
+          },
+          {
+            "source": "module.ec2[0].aws_spot_instance_request.main",
+            "target": "module.vpc[0].aws_subnet.public"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -16,13 +16,14 @@ services:
     depends_on:
       - frontend
       - api
+      - admin
+      - grafana
     x-repository-info:
       deployable: false
     x-subdomain: null
     x-diagram:
       kind: platform
       stack: reverse proxy
-      position: [ 1, 2 ]
 
   frontend:
     image: ${ECR_REGISTRY}/portfolio-frontend:${FRONTEND_TAG}
@@ -38,7 +39,6 @@ services:
       stack: Angular
       public: [ DOMAIN ]
       uses: [ ECR ]
-      position: [ 2, 0 ]
 
   admin:
     image: ${ECR_REGISTRY}/portfolio-admin:${ADMIN_TAG}
@@ -55,7 +55,6 @@ services:
       kind: frontend
       stack: React
       public: [ admin.DOMAIN ]
-      position: [ 2, 1 ]
       uses: [ ECR ]
 
   api:
@@ -76,7 +75,6 @@ services:
       stack: Django + DRF
       public: [ DOMAIN/api, admin.DOMAIN/api ]
       calls: [ postgres ]
-      position: [ 2, 2 ]
       uses: [ ECR, SSM ]
 
   postgres:
@@ -99,7 +97,6 @@ services:
     x-diagram:
       kind: database
       stack: PostgreSQL 16
-      position: [ 3, 2 ]
 
   backup:
     build: ./extra_services/backup
@@ -118,7 +115,6 @@ services:
       kind: job
       stack: Backup su S3
       calls: [ postgres ]
-      position: [ 3, 1 ]
 
   grafana:
     image: grafana/grafana:latest
@@ -139,7 +135,6 @@ services:
       kind: monitoring
       stack: Grafana
       public: [ grafana.DOMAIN ]
-      position: [ 2, 3 ]
 
 volumes:
   postgres-data:
@@ -148,12 +143,4 @@ volumes:
 
 x-platform:
   nodes:
-    browser: { label: Browser, kind: client, position: [ 0, 2 ] }
-    route53: { label: Route 53, stack: DNS, kind: aws, position: [ 0, 3 ] }
-    s3_backup: { label: S3, stack: backup bucket, kind: aws, position: [ 4, 1 ] }
-    cloudwatch: { label: CloudWatch, stack: metrics, kind: aws, position: [ 4, 3 ] }
   edges:
-    - [ browser, nginx, HTTPS ]
-    - [ browser, route53, DNS ]
-    - [ backup, s3_backup, dump ]
-    - [ grafana, cloudwatch, metrics ]

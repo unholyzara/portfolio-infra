@@ -1,0 +1,231 @@
+{
+  "host": "EC2 spot · Docker Compose",
+  "nodes": [
+    {
+      "id": "nginx",
+      "label": "nginx",
+      "stack": "reverse proxy",
+      "origin": "container",
+      "kind": "platform",
+      "position": [
+        1,
+        2
+      ],
+      "profiles": [],
+      "hosts": [],
+      "uses": []
+    },
+    {
+      "id": "frontend",
+      "label": "frontend",
+      "stack": "Angular",
+      "origin": "container",
+      "kind": "frontend",
+      "position": [
+        2,
+        0
+      ],
+      "profiles": [],
+      "hosts": [
+        "unholyzara.dev"
+      ],
+      "uses": [
+        "ECR"
+      ]
+    },
+    {
+      "id": "admin",
+      "label": "admin",
+      "stack": "React",
+      "origin": "container",
+      "kind": "frontend",
+      "position": [
+        2,
+        1
+      ],
+      "profiles": [],
+      "hosts": [
+        "admin.unholyzara.dev"
+      ],
+      "uses": [
+        "ECR"
+      ]
+    },
+    {
+      "id": "api",
+      "label": "api",
+      "stack": "Django + DRF",
+      "origin": "container",
+      "kind": "backend",
+      "position": [
+        2,
+        2
+      ],
+      "profiles": [],
+      "hosts": [
+        "unholyzara.dev/api",
+        "admin.unholyzara.dev/api"
+      ],
+      "uses": [
+        "ECR",
+        "SSM"
+      ]
+    },
+    {
+      "id": "postgres",
+      "label": "postgres",
+      "stack": "PostgreSQL 16",
+      "origin": "container",
+      "kind": "database",
+      "position": [
+        3,
+        2
+      ],
+      "profiles": [],
+      "hosts": [],
+      "uses": []
+    },
+    {
+      "id": "backup",
+      "label": "backup",
+      "stack": "Backup su S3",
+      "origin": "container",
+      "kind": "job",
+      "position": [
+        3,
+        1
+      ],
+      "profiles": [
+        "backup"
+      ],
+      "hosts": [],
+      "uses": []
+    },
+    {
+      "id": "grafana",
+      "label": "grafana",
+      "stack": "Grafana",
+      "origin": "container",
+      "kind": "monitoring",
+      "position": [
+        2,
+        3
+      ],
+      "profiles": [
+        "monitoring"
+      ],
+      "hosts": [
+        "grafana.unholyzara.dev"
+      ],
+      "uses": []
+    },
+    {
+      "id": "browser",
+      "label": "Browser",
+      "stack": "",
+      "origin": "client",
+      "kind": "client",
+      "position": [
+        0,
+        2
+      ],
+      "profiles": [],
+      "hosts": [],
+      "uses": []
+    },
+    {
+      "id": "route53",
+      "label": "Route 53",
+      "stack": "DNS",
+      "origin": "aws",
+      "kind": "aws",
+      "position": [
+        0,
+        3
+      ],
+      "profiles": [],
+      "hosts": [],
+      "uses": []
+    },
+    {
+      "id": "s3_backup",
+      "label": "S3",
+      "stack": "backup bucket",
+      "origin": "aws",
+      "kind": "aws",
+      "position": [
+        4,
+        1
+      ],
+      "profiles": [],
+      "hosts": [],
+      "uses": []
+    },
+    {
+      "id": "cloudwatch",
+      "label": "CloudWatch",
+      "stack": "metrics",
+      "origin": "aws",
+      "kind": "aws",
+      "position": [
+        4,
+        3
+      ],
+      "profiles": [],
+      "hosts": [],
+      "uses": []
+    }
+  ],
+  "edges": [
+    {
+      "from": "nginx",
+      "to": "frontend",
+      "label": null
+    },
+    {
+      "from": "nginx",
+      "to": "admin",
+      "label": null
+    },
+    {
+      "from": "nginx",
+      "to": "api",
+      "label": null
+    },
+    {
+      "from": "api",
+      "to": "postgres",
+      "label": null
+    },
+    {
+      "from": "backup",
+      "to": "postgres",
+      "label": null
+    },
+    {
+      "from": "nginx",
+      "to": "grafana",
+      "label": null
+    },
+    {
+      "from": "browser",
+      "to": "nginx",
+      "label": "HTTPS"
+    },
+    {
+      "from": "browser",
+      "to": "route53",
+      "label": "DNS"
+    },
+    {
+      "from": "backup",
+      "to": "s3_backup",
+      "label": "dump"
+    },
+    {
+      "from": "grafana",
+      "to": "cloudwatch",
+      "label": "metrics"
+    }
+  ]
+}
