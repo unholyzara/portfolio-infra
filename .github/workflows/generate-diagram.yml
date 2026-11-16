@@ -9,13 +9,13 @@ on:
         default: false
 
 permissions:
-  contents: write   # commit del file finale
-  id-token: write   # OIDC verso AWS
+  contents: write
+  id-token: write
 
 env:
-  AWS_REGION: eu-south-1                     # ADATTA
+  AWS_REGION: ${{ vars.AWS_REGION }}
   TF_DIR: terraform/stacks/infrastructure
-  COMPOSE_FILE: docker-compose.yml           # ADATTA: percorso del compose nel repo
+  COMPOSE_FILE: orchestration/docker-compose.yml
   DOMAIN: unholyzara.dev
   SCRIPTS: orchestration/scripts/helpers/architecture_pipeline
   OUT: orchestration/scripts/architecture/output
@@ -44,15 +44,20 @@ jobs:
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_BOOTSTRAP_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       # ---------- 1. Terraform ----------
       - name: Terraform plan, graph, show
         working-directory: ${{ env.TF_DIR }}
         run: |
-          terraform init -input=false
-          terraform plan -input=false -out=tfplan
+          terraform init -backend-config="key=infrastructure/prd/terraform.tfstate"
+          terraform plan \
+              -input=false \
+              -out=tfplan \
+              -var-file=../common.tfvars \
+              -var-file="vars/common.tfvars" \
+              -var-file="vars/prd.tfvars"
           terraform graph -plan=tfplan > terraform.dot
           terraform show -json tfplan > terraform-plan.json
 
@@ -75,7 +80,7 @@ jobs:
       # ---------- 3-4. Layout con Copilot CLI + validazione (con retry) ----------
       - name: Layout with Copilot CLI and validate
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
           MAX_ATTEMPTS: "3"
         run: |
           npm install -g @github/copilot
