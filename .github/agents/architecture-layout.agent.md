@@ -1,3 +1,8 @@
+---
+name: architecture-layout
+description: Generates a valid, compact layout for the infrastructure architecture diagram by changing only node position fields.
+---
+
 You are laying out an architecture diagram. Your ONLY job is to set the "position" field of every node of one JSON file.
 
 Files (paths relative to the repository root):
