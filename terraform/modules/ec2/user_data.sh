@@ -46,7 +46,6 @@ POSTGRES_ROOT_PASSWORD=$(aws ssm get-parameter \
   --output text | jq -r '.root_password')
 echo "POSTGRES_ROOT_PASSWORD=$POSTGRES_ROOT_PASSWORD" >> /home/deploy/app/.env
 
-%{ if environment == "prd" ~}
 GRAFANA_ADMIN_PASSWORD=$(aws ssm get-parameter \
   --region ${aws_region} \
   --name /${project_name}/${environment}/grafana \
@@ -54,7 +53,6 @@ GRAFANA_ADMIN_PASSWORD=$(aws ssm get-parameter \
   --query Parameter.Value \
   --output text | jq -r '.admin_password')
 echo "GRAFANA_ADMIN_PASSWORD=$GRAFANA_ADMIN_PASSWORD" >> /home/deploy/app/.env
-%{ endif ~}
 
 chmod 600 /home/deploy/app/.env
 chown deploy:deploy /home/deploy/app/.env
