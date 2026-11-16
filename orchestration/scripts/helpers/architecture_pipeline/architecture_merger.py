@@ -1,10 +1,10 @@
-
 import argparse
 import json
 from pathlib import Path
 
+# Deployment host -> (terraform module, resource type) of the node that runs containers.
 DEPLOYMENT_HOSTS = {
-    "ec2": "module.ec2[0].aws_spot_instance_request.main",
+    "ec2": ("ec2", "aws_spot_instance_request"),
 }
 
 
@@ -14,42 +14,66 @@ def load_json(path):
 
 
 def build_deployment_edges(services, infrastructure):
-    infrastructure_ids = {
-        node["id"]
-        for node in infrastructure.get("nodes", [])
-    }
+    targets = {}
+
+    for host, (module, resource_type) in DEPLOYMENT_HOSTS.items():
+        for node in infrastructure.get("nodes", []):
+            if (
+                node.get("resource_type") == resource_type
+                and module in node.get("modules", [])
+            ):
+                targets[host] = node["id"]
+                break
+
     edges = []
+
     for node in services.get("nodes", []):
         if node.get("origin") != "container":
             continue
+
         for host in node.get("deployment_hosts", ["ec2"]):
-            target = DEPLOYMENT_HOSTS.get(host)
-            if target and target in infrastructure_ids:
+            target = targets.get(host)
+
+            if target:
                 edges.append({
                     "from": node["id"],
                     "to": target,
                     "types": ["runs_on"],
                 })
+
     return edges
+
+
+# Fields the frontend (DiagramNode) expects on every node.
+REQUIRED_LIST_FIELDS = ("profiles", "hosts", "uses")
 
 
 def merge_architecture(services, infrastructure):
     nodes = services.get("nodes", []) + infrastructure.get("nodes", [])
+
+    # Terraform nodes have no profiles/hosts/uses: normalize them to empty lists.
+    for node in nodes:
+        for field in REQUIRED_LIST_FIELDS:
+            node.setdefault(field, [])
     edges = (
         services.get("edges", [])
         + infrastructure.get("edges", [])
         + build_deployment_edges(services, infrastructure)
     )
+
     # Verify node IDs are unique.
     node_ids = [node["id"] for node in nodes]
     duplicates = sorted({
         node_id for node_id in node_ids
         if node_ids.count(node_id) > 1
     })
+
     if duplicates:
         raise ValueError(f"Duplicate node IDs: {duplicates}")
+
     # Verify every edge references an existing node.
     node_id_set = set(node_ids)
+
     for edge in edges:
         for endpoint in ("from", "to"):
             if edge[endpoint] not in node_id_set:
@@ -57,6 +81,7 @@ def merge_architecture(services, infrastructure):
                     f"Edge references unknown node: "
                     f"{edge[endpoint]}"
                 )
+
     return {
         "project": services.get("project"),
         "environments": services.get("environments", []),
@@ -69,6 +94,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Merge Docker Compose and Terraform architecture"
     )
+
     parser.add_argument("--services", required=True)
     parser.add_argument("--infrastructure", required=True)
     parser.add_argument("--output", required=True)
