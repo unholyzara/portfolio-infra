@@ -3,10 +3,13 @@ import json
 import sys
 from pathlib import Path
 
+# Must match diagram-layout.ts (CARD_WIDTH, GAP_X). Only the horizontal pitch matters:
+# the check works on grid cells, so row heights are irrelevant.
 CARD_WIDTH = 240
 GAP_X = 64
 PITCH = CARD_WIDTH + GAP_X
 
+# Edge types the frontend does not draw (must match the filter in diagram-layout.ts).
 DEFAULT_IGNORED_EDGE_TYPES = ("runs_on",)
 
 
@@ -22,7 +25,6 @@ def load_json(path, default=None):
 
 
 def strip_layout(architecture):
-    """Return a canonical copy without layout-only fields."""
     clone = json.loads(json.dumps(architecture))
     clone.pop("host", None)
 
@@ -34,6 +36,32 @@ def strip_layout(architecture):
 
 def canonical(value):
     return json.dumps(value, sort_keys=True, ensure_ascii=False)
+
+
+def find_host(edges):
+    counts = {}
+
+    for edge in edges:
+        if "runs_on" in edge.get("types", []):
+            counts[edge["to"]] = counts.get(edge["to"], 0) + 1
+
+    return max(counts, key=counts.get) if counts else None
+
+
+def frame_box(edited, host_id):
+    cells = [
+        tuple(node["position"])
+        for node in edited["nodes"]
+        if node.get("origin") == "container" and node["id"] != host_id
+    ]
+
+    if not cells:
+        return None
+
+    cols = [col for col, _ in cells]
+    rows = [row for _, row in cells]
+
+    return min(cols), max(cols), min(rows), max(rows)
 
 
 def edge_blockers(source, target):
@@ -107,11 +135,14 @@ def check_structure(generated, edited):
     return errors
 
 
-def check_positions(edited):
+def check_positions(edited, host_id=None):
     errors = []
     seen = {}
 
     for node in edited["nodes"]:
+        if node["id"] == host_id:
+            continue  # drawn as the frame: its position is ignored
+
         position = node.get("position")
 
         valid = (
@@ -143,21 +174,19 @@ def check_positions(edited):
     return errors
 
 
-def check_edge_crossings(edited, ignored_types):
+def check_edge_crossings(edited, ignored_types, host_id=None):
     errors = []
 
-    cells = {
-        tuple(node["position"]): node["id"]
-        for node in edited["nodes"]
-    }
-    positions = {
-        node["id"]: tuple(node["position"])
-        for node in edited["nodes"]
-    }
+    placed = [node for node in edited["nodes"] if node["id"] != host_id]
+    cells = {tuple(node["position"]): node["id"] for node in placed}
+    positions = {node["id"]: tuple(node["position"]) for node in placed}
 
     for edge in edited["edges"]:
         if set(edge.get("types", [])) & set(ignored_types):
             continue
+
+        if host_id in (edge["from"], edge["to"]):
+            continue  # checked by check_frame
 
         source, target = positions[edge["from"]], positions[edge["to"]]
 
@@ -169,6 +198,72 @@ def check_edge_crossings(edited, ignored_types):
                     f"Edge {edge['from']} -> {edge['to']} passes through "
                     f"node {blocking} at cell {list(cell)}"
                 )
+
+    return errors
+
+
+def check_frame(edited, host_id, ignored_types):
+    errors = []
+
+    if host_id is None:
+        return errors
+
+    box = frame_box(edited, host_id)
+
+    if box is None:
+        return errors
+
+    min_col, max_col, min_row, max_row = box
+    placed = {
+        node["id"]: node
+        for node in edited["nodes"]
+        if node["id"] != host_id
+    }
+
+    for node_id, node in placed.items():
+        col, row = node["position"]
+
+        if (
+            node.get("origin") != "container"
+            and min_col <= col <= max_col
+            and min_row <= row <= max_row
+        ):
+            errors.append(
+                f"Node {node_id} at {[col, row]} is inside the frame area "
+                f"(columns {min_col}-{max_col}, rows {min_row}-{max_row})"
+            )
+
+    for edge in edited["edges"]:
+        if set(edge.get("types", [])) & set(ignored_types):
+            continue
+
+        if host_id not in (edge["from"], edge["to"]):
+            continue
+
+        other_id = edge["to"] if edge["from"] == host_id else edge["from"]
+        other = placed.get(other_id)
+
+        if other is None:
+            continue
+
+        col, row = other["position"]
+
+        if row > max_row:
+            adjacent, where = row == max_row + 1, f"in row {max_row + 1} (right below the frame)"
+        elif row < min_row:
+            adjacent, where = row == min_row - 1, f"in row {min_row - 1} (right above the frame)"
+        elif col < min_col:
+            adjacent, where = col == min_col - 1, f"in column {min_col - 1} (right at the left of the frame)"
+        elif col > max_col:
+            adjacent, where = col == max_col + 1, f"in column {max_col + 1} (right at the right of the frame)"
+        else:
+            continue  # inside the frame: already reported
+
+        if not adjacent:
+            errors.append(
+                f"Edge {edge['from']} -> {edge['to']}: node {other_id} at {[col, row]} "
+                f"must be {where}"
+            )
 
     return errors
 
@@ -194,12 +289,15 @@ def check_locked_positions(edited, current):
 
 
 def validate(generated, edited, current, ignored_types, lock_existing=False):
+    host_id = find_host(edited["edges"])
+
     errors = check_structure(generated, edited)
-    errors += check_positions(edited)
+    errors += check_positions(edited, host_id)
 
     # Geometry only makes sense on well-formed, unique positions.
     if not errors:
-        errors += check_edge_crossings(edited, ignored_types)
+        errors += check_frame(edited, host_id, ignored_types)
+        errors += check_edge_crossings(edited, ignored_types, host_id)
 
     if lock_existing:
         errors += check_locked_positions(edited, current)
@@ -210,6 +308,14 @@ def validate(generated, edited, current, ignored_types, lock_existing=False):
 def build_output(edited, current):
     host = current.get("host") or edited.get("host")
     rest = {key: value for key, value in edited.items() if key != "host"}
+
+    host_id = find_host(edited["edges"])
+    box = frame_box(edited, host_id) if host_id else None
+
+    if box:
+        for node in rest["nodes"]:
+            if node["id"] == host_id:
+                node["position"] = [box[0], box[2]]
 
     return ({"host": host} if host else {}) | rest
 

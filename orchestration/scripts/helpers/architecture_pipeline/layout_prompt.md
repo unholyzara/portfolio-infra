@@ -9,7 +9,10 @@ Files (paths relative to the repository root):
 Grid convention: "position": [column, row], both non-negative integers, one node per cell. Columns go left to right, rows top to bottom.
 
 How the diagram is drawn (this decides what a good layout is):
+- The HOST node is the node that is the target of the "runs_on" edges (the EC2 Spot). It is NOT drawn as a card: it is drawn as a FRAME around all the nodes with origin "container". Do NOT give the host node a position (it is ignored).
+- The frame covers the rectangle of cells from the smallest to the largest column and row used by the container nodes. No non-container node may be inside that rectangle.
 - Edges of type "runs_on" are NOT drawn. Ignore them when laying out. All other edges are drawn.
+- An edge to or from the host attaches to the FRAME's border. The node at the other end MUST be directly adjacent to the frame: in the row right below it, or right above it, or in the column right at its left or right. Pick the side: if the node is below/above the frame rows, that side is used (vertical first), otherwise left/right. The nodes linked to the host (VPC, IAM, EIP Association) must therefore all sit in the ring of cells around the frame.
 - An edge between two nodes in the SAME column is a straight vertical line from one card to the other. Every cell between them in that column must be EMPTY.
 - An edge between nodes in DIFFERENT columns leaves the side of the source card, runs horizontally, makes one vertical step halfway between the two cards, and enters the side of the target card. Any card in a column strictly between the two columns can be crossed by this line, so keep connected nodes in ADJACENT columns whenever possible. If they are in columns further apart, the cells in between (in the rows of both nodes and, if the vertical step falls on them, in the rows between) must be empty.
 - A line must never pass through another node's card. This is the main goal.
@@ -17,7 +20,7 @@ How the diagram is drawn (this decides what a good layout is):
 Layout rules:
 1. Nodes that share an edge (excluding "runs_on") go in the same row or column, or in adjacent columns.
 2. Data flows left to right: clients and DNS on the left, reverse proxy next, application containers in the middle, databases and jobs after that, AWS storage and monitoring on the right.
-3. Keep the "container" nodes together, in the top rows. Put AWS infrastructure nodes (origin "aws": VPC, IAM, Elastic IP, EIP Association, EC2 Spot, grouped Route 53) in rows BELOW them, grouped logically.
+3. Keep the "container" nodes together (they form the frame). Put the other nodes (origin "aws" or "client") OUTSIDE the frame area, around it, grouped logically; the ones linked to the host go in the ring of cells around the frame, the others next to the nodes they are linked to.
 4. Be compact: no empty columns or rows, no more rows and columns than needed.
 5. Every position must be unique.
 6. You may move any node, including those that appear in REFERENCE. Use REFERENCE as a starting point and change it only when needed to satisfy the rules above.

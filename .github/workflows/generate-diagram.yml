@@ -1,4 +1,3 @@
-
 name: Architecture diagram
 
 on:
@@ -9,9 +8,13 @@ on:
         type: boolean
         default: false
 
+# Permessi minimi di default; i job che servono di più li dichiarano da soli.
 permissions:
-  contents: write
-  id-token: write
+  contents: read
+
+concurrency:
+  group: architecture-diagram
+  cancel-in-progress: false
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
@@ -20,18 +23,26 @@ env:
   DOMAIN: unholyzara.dev
   SCRIPTS: orchestration/scripts/helpers/architecture_pipeline
   OUT: orchestration/scripts/architecture/output
+  FINAL_DIR: orchestration/diagram
   FINAL: orchestration/diagram/architecture.json
 
 jobs:
 
   # --------------------------------
-  # 1. Terraform
+  # 1. Terraform + parser (stesso job: il plan non esce mai dal runner)
   # --------------------------------
   terraform:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - uses: hashicorp/setup-terraform@v3
         with:
@@ -47,6 +58,7 @@ jobs:
         working-directory: ${{ env.TF_DIR }}
         run: |
           terraform init \
+            -input=false \
             -backend-config="key=infrastructure/prd/terraform.tfstate"
 
           terraform plan \
@@ -59,12 +71,21 @@ jobs:
           terraform graph -plan=tfplan > terraform.dot
           terraform show -json tfplan > terraform-plan.json
 
+      - name: Build infrastructure.json
+        run: |
+          mkdir -p "$OUT"
+
+          python "$SCRIPTS/terraform_parser.py" \
+            --plan "$TF_DIR/terraform-plan.json" \
+            --graph "$TF_DIR/terraform.dot" \
+            --output "$OUT/infrastructure.json"
+
+      # Solo infrastructure.json: tfplan e terraform-plan.json possono contenere
+      # valori sensibili e non devono diventare artifact.
       - uses: actions/upload-artifact@v4
         with:
-          name: terraform-output
-          path: |
-            ${{ env.TF_DIR }}/terraform.dot
-            ${{ env.TF_DIR }}/terraform-plan.json
+          name: infrastructure-output
+          path: ${{ env.OUT }}/infrastructure.json
           retention-days: 1
 
 
@@ -100,49 +121,12 @@ jobs:
 
 
   # --------------------------------
-  # 3. Terraform parser
-  # --------------------------------
-  parse-terraform:
-    needs: terraform
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - run: pip install pyyaml
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: terraform-output
-          path: ${{ env.TF_DIR }}
-
-      - name: Build infrastructure.json
-        run: |
-          mkdir -p "$OUT"
-
-          python "$SCRIPTS/terraform_parser.py" \
-            --plan "$TF_DIR/terraform-plan.json" \
-            --graph "$TF_DIR/terraform.dot" \
-            --output "$OUT/infrastructure.json"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: infrastructure-output
-          path: ${{ env.OUT }}/infrastructure.json
-          retention-days: 1
-
-
-  # --------------------------------
-  # 4. Merge + Copilot layout
+  # 3. Merge + Copilot layout
   # --------------------------------
   merge-and-layout:
     needs:
       - parse-compose
-      - parse-terraform
+      - terraform
 
     runs-on: ubuntu-latest
 
@@ -156,8 +140,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-
-      - run: pip install pyyaml
 
       - uses: actions/download-artifact@v4
         with:
@@ -211,25 +193,33 @@ jobs:
           cat "$OUT/layout_errors.txt"
           exit 1
 
+      # Artifact con UN SOLO percorso: la radice dell'artifact è la cartella del file,
+      # quindi contiene solo architecture.json (con più percorsi la radice diventa
+      # l'antenato comune e il file finisce nel posto sbagliato al download).
       - uses: actions/upload-artifact@v4
         with:
           name: architecture-final
+          path: ${{ env.FINAL }}
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: architecture-debug
           path: |
             ${{ env.OUT }}/services.json
             ${{ env.OUT }}/infrastructure.json
             ${{ env.OUT }}/architecture.generated.json
-            ${{ env.FINAL }}
           retention-days: 7
 
 
   # --------------------------------
-  # 5. Publish
+  # 4. Publish
   # --------------------------------
   publish:
     needs: merge-and-layout
     runs-on: ubuntu-latest
-
-    if: ${{ always() && needs.merge-and-layout.result == 'success' }}
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -237,7 +227,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: architecture-final
-          path: .
+          path: ${{ env.FINAL_DIR }}
 
       - name: Commit
         if: ${{ !inputs.dry_run }}
