@@ -277,7 +277,10 @@
             "module": "dns"
           }
         ]
-      }
+      },
+      "profiles": [],
+      "hosts": [],
+      "uses": []
     },
     {
       "id": "iam",
@@ -317,7 +320,10 @@
             "module": "ec2"
           }
         ]
-      }
+      },
+      "profiles": [],
+      "hosts": [],
+      "uses": []
     },
     {
       "id": "module.ec2[0].aws_eip.main",
@@ -342,7 +348,10 @@
             "module": "ec2"
           }
         ]
-      }
+      },
+      "profiles": [],
+      "hosts": [],
+      "uses": []
     },
     {
       "id": "module.ec2[0].aws_eip_association.main",
@@ -367,7 +376,10 @@
             "module": "ec2"
           }
         ]
-      }
+      },
+      "profiles": [],
+      "hosts": [],
+      "uses": []
     },
     {
       "id": "module.ec2[0].aws_spot_instance_request.main",
@@ -392,7 +404,10 @@
             "module": "ec2"
           }
         ]
-      }
+      },
+      "profiles": [],
+      "hosts": [],
+      "uses": []
     },
     {
       "id": "network",
@@ -442,7 +457,10 @@
             "module": "vpc"
           }
         ]
-      }
+      },
+      "profiles": [],
+      "hosts": [],
+      "uses": []
     }
   ],
   "edges": [
