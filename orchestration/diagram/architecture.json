@@ -180,6 +180,66 @@
       }
     },
     {
+      "id": "browser",
+      "label": "Browser",
+      "origin": "client",
+      "kind": "client",
+      "position": [
+        0,
+        6
+      ],
+      "stack": "",
+      "profiles": [],
+      "hosts": [],
+      "uses": [],
+      "metadata": {}
+    },
+    {
+      "id": "route53",
+      "label": "Route 53",
+      "origin": "aws",
+      "kind": "aws",
+      "position": [
+        1,
+        6
+      ],
+      "stack": "DNS",
+      "profiles": [],
+      "hosts": [],
+      "uses": [],
+      "metadata": {}
+    },
+    {
+      "id": "s3_backup",
+      "label": "S3",
+      "origin": "aws",
+      "kind": "aws",
+      "position": [
+        4,
+        6
+      ],
+      "stack": "backup bucket",
+      "profiles": [],
+      "hosts": [],
+      "uses": [],
+      "metadata": {}
+    },
+    {
+      "id": "cloudwatch",
+      "label": "CloudWatch",
+      "origin": "aws",
+      "kind": "aws",
+      "position": [
+        5,
+        6
+      ],
+      "stack": "metrics",
+      "profiles": [],
+      "hosts": [],
+      "uses": [],
+      "metadata": {}
+    },
+    {
       "id": "dns",
       "label": "Route 53",
       "origin": "aws",
@@ -434,6 +494,38 @@
       "types": [
         "depends_on",
         "calls"
+      ]
+    },
+    {
+      "from": "browser",
+      "to": "nginx",
+      "label": "HTTPS",
+      "types": [
+        "platform"
+      ]
+    },
+    {
+      "from": "browser",
+      "to": "route53",
+      "label": "DNS",
+      "types": [
+        "platform"
+      ]
+    },
+    {
+      "from": "backup",
+      "to": "s3_backup",
+      "label": "dump",
+      "types": [
+        "platform"
+      ]
+    },
+    {
+      "from": "grafana",
+      "to": "cloudwatch",
+      "label": "metrics",
+      "types": [
+        "platform"
       ]
     },
     {
