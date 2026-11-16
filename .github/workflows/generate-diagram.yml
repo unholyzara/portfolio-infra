@@ -9,13 +9,13 @@ on:
         default: false
 
 permissions:
-  contents: write
-  id-token: write
+  contents: write   # commit del file finale
+  id-token: write   # OIDC verso AWS
 
 env:
-  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_REGION: eu-south-1                     # ADATTA
   TF_DIR: terraform/stacks/infrastructure
-  COMPOSE_FILE: orchestration/docker-compose.yml
+  COMPOSE_FILE: docker-compose.yml           # ADATTA: percorso del compose nel repo
   DOMAIN: unholyzara.dev
   SCRIPTS: orchestration/scripts/helpers/architecture_pipeline
   OUT: orchestration/scripts/architecture/output
@@ -40,24 +40,19 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.7.5
-          terraform_wrapper: false
+          terraform_wrapper: false   # serve per redirigere l'output di `terraform graph/show`
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_BOOTSTRAP_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       # ---------- 1. Terraform ----------
       - name: Terraform plan, graph, show
         working-directory: ${{ env.TF_DIR }}
         run: |
-          terraform init -backend-config="key=infrastructure/prd/terraform.tfstate"
-          terraform plan \
-              -input=false \
-              -out=tfplan \
-              -var-file=../common.tfvars \
-              -var-file="vars/common.tfvars" \
-              -var-file="vars/prd.tfvars"
+          terraform init -input=false
+          terraform plan -input=false -out=tfplan
           terraform graph -plan=tfplan > terraform.dot
           terraform show -json tfplan > terraform-plan.json
 
@@ -77,26 +72,42 @@ jobs:
             --infrastructure "$OUT/infrastructure.json" \
             --output "$OUT/architecture.json"
 
-      # ---------- 3. Posizionamento nodi con Copilot CLI ----------
-      - name: Layout with Copilot CLI
+      # ---------- 3-4. Layout con Copilot CLI + validazione (con retry) ----------
+      - name: Layout with Copilot CLI and validate
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          MAX_ATTEMPTS: "3"
         run: |
           npm install -g @github/copilot
           # snapshot pre-Copilot: serve al validatore per verificare che sia cambiato solo `position`
           cp "$OUT/architecture.json" "$OUT/architecture.generated.json"
-          copilot -p "$(cat "$SCRIPTS/layout_prompt.md")" \
-            -s --allow-tool=write --no-ask-user
+          rm -f "$OUT/layout_errors.txt"
 
-      # ---------- 4. Validazione e scrittura del file finale ----------
-      - name: Validate and write final file
-        run: |
-          python "$SCRIPTS/validate_layout.py" \
-            --generated "$OUT/architecture.generated.json" \
-            --edited "$OUT/architecture.json" \
-            --current "$FINAL" \
-            --output "$FINAL"
+          for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
+            echo "::group::Copilot attempt $attempt/$MAX_ATTEMPTS"
+            # riparti sempre dal file generato, senza residui del tentativo precedente
+            cp "$OUT/architecture.generated.json" "$OUT/architecture.json"
 
+            copilot -p "$(cat "$SCRIPTS/layout_prompt.md")" \
+              -s --allow-tool=write --no-ask-user
+
+            if python "$SCRIPTS/validate_layout.py" \
+                --generated "$OUT/architecture.generated.json" \
+                --edited "$OUT/architecture.json" \
+                --current "$FINAL" \
+                --output "$FINAL" \
+                --errors-file "$OUT/layout_errors.txt"; then
+              echo "::endgroup::"
+              exit 0
+            fi
+            echo "::endgroup::"
+          done
+
+          echo "::error::Layout non valido dopo $MAX_ATTEMPTS tentativi"
+          cat "$OUT/layout_errors.txt"
+          exit 1
+
+      # Niente terraform-plan.json né tfplan: possono contenere valori sensibili.
       - uses: actions/upload-artifact@v4
         with:
           name: architecture-json
