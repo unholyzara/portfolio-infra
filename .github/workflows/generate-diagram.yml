@@ -1,3 +1,4 @@
+
 name: Architecture diagram
 
 on:
@@ -22,8 +23,57 @@ env:
   FINAL: orchestration/diagram/architecture.json
 
 jobs:
-  generate:
+
+  # --------------------------------
+  # 1. Terraform
+  # --------------------------------
+  terraform:
     runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.5
+          terraform_wrapper: false
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_BOOTSTRAP_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform plan, graph, show
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform init \
+            -backend-config="key=infrastructure/prd/terraform.tfstate"
+
+          terraform plan \
+            -input=false \
+            -out=tfplan \
+            -var-file=../common.tfvars \
+            -var-file="vars/common.tfvars" \
+            -var-file="vars/prd.tfvars"
+
+          terraform graph -plan=tfplan > terraform.dot
+          terraform show -json tfplan > terraform-plan.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: terraform-output
+          path: |
+            ${{ env.TF_DIR }}/terraform.dot
+            ${{ env.TF_DIR }}/terraform-plan.json
+          retention-days: 1
+
+
+  # --------------------------------
+  # 2. Docker Compose parser
+  # --------------------------------
+  parse-compose:
+    runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -33,64 +83,112 @@ jobs:
 
       - run: pip install pyyaml
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.7.5
-          terraform_wrapper: false   # serve per redirigere l'output di `terraform graph/show`
-
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_BOOTSTRAP_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      # ---------- 1. Terraform ----------
-      - name: Terraform plan, graph, show
-        working-directory: ${{ env.TF_DIR }}
-        run: |
-          terraform init -backend-config="key=infrastructure/prd/terraform.tfstate"
-          terraform plan \
-              -input=false \
-              -out=tfplan \
-              -var-file=../common.tfvars \
-              -var-file="vars/common.tfvars" \
-              -var-file="vars/prd.tfvars"
-          terraform graph -plan=tfplan > terraform.dot
-          terraform show -json tfplan > terraform-plan.json
-
-      # ---------- 2. Parser e merge ----------
-      - name: Build services.json, infrastructure.json, architecture.json
+      - name: Build services.json
         run: |
           mkdir -p "$OUT"
+
           python "$SCRIPTS/compose_parser.py" \
-            --compose "$COMPOSE_FILE" --domain "$DOMAIN" \
+            --compose "$COMPOSE_FILE" \
+            --domain "$DOMAIN" \
             --output "$OUT/services.json"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compose-output
+          path: ${{ env.OUT }}/services.json
+          retention-days: 1
+
+
+  # --------------------------------
+  # 3. Terraform parser
+  # --------------------------------
+  parse-terraform:
+    needs: terraform
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install pyyaml
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: terraform-output
+          path: ${{ env.TF_DIR }}
+
+      - name: Build infrastructure.json
+        run: |
+          mkdir -p "$OUT"
+
           python "$SCRIPTS/terraform_parser.py" \
             --plan "$TF_DIR/terraform-plan.json" \
             --graph "$TF_DIR/terraform.dot" \
             --output "$OUT/infrastructure.json"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: infrastructure-output
+          path: ${{ env.OUT }}/infrastructure.json
+          retention-days: 1
+
+
+  # --------------------------------
+  # 4. Merge + Copilot layout
+  # --------------------------------
+  merge-and-layout:
+    needs:
+      - parse-compose
+      - parse-terraform
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - run: pip install pyyaml
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: compose-output
+          path: ${{ env.OUT }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: infrastructure-output
+          path: ${{ env.OUT }}
+
+      - name: Merge architecture
+        run: |
           python "$SCRIPTS/architecture_merger.py" \
             --services "$OUT/services.json" \
             --infrastructure "$OUT/infrastructure.json" \
             --output "$OUT/architecture.json"
 
-      # ---------- 3-4. Layout con Copilot CLI + validazione (con retry) ----------
       - name: Layout with Copilot CLI and validate
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
           MAX_ATTEMPTS: "3"
         run: |
           npm install -g @github/copilot
-          # snapshot pre-Copilot: serve al validatore per verificare che sia cambiato solo `position`
+
           cp "$OUT/architecture.json" "$OUT/architecture.generated.json"
           rm -f "$OUT/layout_errors.txt"
 
           for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
             echo "::group::Copilot attempt $attempt/$MAX_ATTEMPTS"
-            # riparti sempre dal file generato, senza residui del tentativo precedente
+
             cp "$OUT/architecture.generated.json" "$OUT/architecture.json"
 
             copilot -p "$(cat "$SCRIPTS/layout_prompt.md")" \
@@ -105,6 +203,7 @@ jobs:
               echo "::endgroup::"
               exit 0
             fi
+
             echo "::endgroup::"
           done
 
@@ -112,23 +211,42 @@ jobs:
           cat "$OUT/layout_errors.txt"
           exit 1
 
-      # Niente terraform-plan.json né tfplan: possono contenere valori sensibili.
       - uses: actions/upload-artifact@v4
         with:
-          name: architecture-json
+          name: architecture-final
           path: |
             ${{ env.OUT }}/services.json
             ${{ env.OUT }}/infrastructure.json
             ${{ env.OUT }}/architecture.generated.json
             ${{ env.FINAL }}
+          retention-days: 7
 
-      # ---------- 5. Commit del solo file finale ----------
+
+  # --------------------------------
+  # 5. Publish
+  # --------------------------------
+  publish:
+    needs: merge-and-layout
+    runs-on: ubuntu-latest
+
+    if: ${{ always() && needs.merge-and-layout.result == 'success' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: architecture-final
+          path: .
+
       - name: Commit
         if: ${{ !inputs.dry_run }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add -- "$FINAL"
+
           if git diff --cached --quiet; then
             echo "Nessuna modifica a $FINAL, niente commit."
           else
