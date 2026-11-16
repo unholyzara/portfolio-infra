@@ -17,7 +17,7 @@
       "kind": "platform",
       "position": [
         1,
-        2
+        0
       ],
       "stack": "reverse proxy",
       "profiles": [],
@@ -140,7 +140,7 @@
       "kind": "job",
       "position": [
         3,
-        1
+        4
       ],
       "stack": "Backup su S3",
       "profiles": [
@@ -186,7 +186,7 @@
       "kind": "client",
       "position": [
         0,
-        6
+        0
       ],
       "stack": "",
       "profiles": [],
@@ -200,8 +200,8 @@
       "origin": "aws",
       "kind": "aws",
       "position": [
-        1,
-        6
+        0,
+        5
       ],
       "stack": "DNS",
       "profiles": [],
@@ -216,7 +216,7 @@
       "kind": "aws",
       "position": [
         4,
-        6
+        5
       ],
       "stack": "backup bucket",
       "profiles": [],
@@ -230,8 +230,8 @@
       "origin": "aws",
       "kind": "aws",
       "position": [
-        5,
-        6
+        3,
+        5
       ],
       "stack": "metrics",
       "profiles": [],
@@ -246,7 +246,7 @@
       "kind": "dns",
       "position": [
         4,
-        5
+        7
       ],
       "stack": "AWS Route 53",
       "modules": [
@@ -289,7 +289,7 @@
       "kind": "security",
       "position": [
         0,
-        5
+        7
       ],
       "stack": "AWS IAM",
       "modules": [
@@ -332,7 +332,7 @@
       "kind": "network",
       "position": [
         3,
-        4
+        7
       ],
       "stack": "AWS Elastic IP",
       "modules": [
@@ -360,7 +360,7 @@
       "kind": "network",
       "position": [
         2,
-        4
+        7
       ],
       "stack": "AWS EIP Association",
       "modules": [
@@ -388,7 +388,7 @@
       "kind": "compute",
       "position": [
         1,
-        4
+        6
       ],
       "stack": "AWS EC2 Spot",
       "modules": [
@@ -416,7 +416,7 @@
       "kind": "network",
       "position": [
         0,
-        4
+        6
       ],
       "stack": "AWS VPC",
       "modules": [
