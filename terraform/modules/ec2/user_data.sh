@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+APP_DIR=/home/deploy/app
+COMPOSE_DIR=$APP_DIR/orchestration
+
 dnf update -y
 dnf install -y docker git jq cronie
 
@@ -22,13 +25,13 @@ usermod -aG docker ssm-user
 echo "ssm-user ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ssm-agent-users
 chmod 440 /etc/sudoers.d/ssm-agent-users
 
-mkdir -p /home/deploy/app
-cd /home/deploy/app
+mkdir -p $APP_DIR
+cd $APP_DIR
 
 git clone https://github.com/${github_org}/${github_repository}.git .
-chown -R deploy:deploy /home/deploy/app
+chown -R deploy:deploy $APP_DIR
 
-cat > /home/deploy/app/.env << ENVFILE
+cat > $COMPOSE_DIR/.env << ENVFILE
 ENVIRONMENT=${environment}
 AWS_REGION=${aws_region}
 ECR_REGISTRY=${ecr_registry}
@@ -44,7 +47,7 @@ POSTGRES_ROOT_PASSWORD=$(aws ssm get-parameter \
   --with-decryption \
   --query Parameter.Value \
   --output text | jq -r '.root_password')
-echo "POSTGRES_ROOT_PASSWORD=$POSTGRES_ROOT_PASSWORD" >> /home/deploy/app/.env
+echo "POSTGRES_ROOT_PASSWORD=$POSTGRES_ROOT_PASSWORD" >> $COMPOSE_DIR/.env
 
 GRAFANA_ADMIN_PASSWORD=$(aws ssm get-parameter \
   --region ${aws_region} \
@@ -52,10 +55,10 @@ GRAFANA_ADMIN_PASSWORD=$(aws ssm get-parameter \
   --with-decryption \
   --query Parameter.Value \
   --output text | jq -r '.admin_password')
-echo "GRAFANA_ADMIN_PASSWORD=$GRAFANA_ADMIN_PASSWORD" >> /home/deploy/app/.env
+echo "GRAFANA_ADMIN_PASSWORD=$GRAFANA_ADMIN_PASSWORD" >> $COMPOSE_DIR/.env
 
-chmod 600 /home/deploy/app/.env
-chown deploy:deploy /home/deploy/app/.env
+chmod 600 $COMPOSE_DIR/.env
+chown deploy:deploy $COMPOSE_DIR/.env
 
 sudo -u deploy bash -c "aws ecr get-login-password --region ${aws_region} | docker login --username AWS --password-stdin ${ecr_registry}"
 
@@ -63,7 +66,7 @@ cat > /etc/cron.d/ecr-login << CRONFILE
 0 */6 * * * deploy aws ecr get-login-password --region ${aws_region} | docker login --username AWS --password-stdin ${ecr_registry}
 CRONFILE
 
-cd /home/deploy/app
+cd $COMPOSE_DIR
 sudo -u deploy docker compose pull
 
 %{ if environment == "prd" ~}
