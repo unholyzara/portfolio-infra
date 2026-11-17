@@ -6,6 +6,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "8000:8000"
     volumes:
       - ./nginx/nginx.local.conf:/etc/nginx/nginx.conf:ro
       - certbot-certs:/etc/letsencrypt:ro
@@ -13,23 +14,23 @@ services:
     depends_on:
       - api
       - frontend
+      - admin
 
   frontend:
     build:
       context: ../../portfolio-frontend
+    depends_on:
+      - api
 
-  # admin:
-  #   build:
-  #     context: ../../portfolio-admin
-  #   image: null
-  #   ports:
-  #     - "8000:8000"
+  admin:
+    build:
+      context: ../../portfolio-admin
+    depends_on:
+      - api
 
   api:
     build:
       context: ../../portfolio-api
-    ports:
-      - "8001:8000"
     env_file:
       - ./services/api/${ENVIRONMENT}.env
     depends_on:

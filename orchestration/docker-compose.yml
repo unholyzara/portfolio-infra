@@ -28,6 +28,8 @@ services:
   frontend:
     image: ${ECR_REGISTRY}/portfolio-frontend:${FRONTEND_TAG}
     restart: unless-stopped
+    depends_on:
+      - api
     x-repository-info:
       type: frontend
       repo_description: "Portfolio frontend — Angular"
@@ -45,6 +47,8 @@ services:
     restart: unless-stopped
     env_file:
       - ./services/admin/${ENVIRONMENT}.env
+    depends_on:
+      - api
     x-repository-info:
       type: admin
       repo_description: "Portfolio admin — React backoffice"
