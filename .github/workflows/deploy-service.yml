@@ -91,7 +91,7 @@ jobs:
           fi
 
           COMMANDS="[
-            'cd /home/deploy/app',
+            'cd /home/deploy/app/orchestration',
             'sed -i \"s|^${ENV_VAR}=.*|${ENV_VAR}=${IMAGE_TAG}|\" .env'
             ${INJECT_COMMANDS},
             'docker compose pull ${SERVICE}'"
