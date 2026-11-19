@@ -23,5 +23,5 @@ module "lambda_gh_repository" {
   aws_region      = data.aws_region.current.name
   github_token    = var.github_token
   deploy_role_arn = data.aws_iam_role.deploy.arn
-  ecr_repo_url    = module.ecr_service[each.key].ecr_url
+  ecr_repo_url    = module.ecr_lambda[each.key].ecr_url
 }
