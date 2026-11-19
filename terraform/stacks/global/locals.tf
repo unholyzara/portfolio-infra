@@ -13,12 +13,11 @@ locals {
     if try(service["x-repository-info"].deployable, false)
   }
   lambdas = {
-    for name, service in local.services_data :
+    for name, lambda in local.lambdas_data :
     name => merge(
-      { name = name },
+      { name = lambda },
       service["x-repository-info"]
     )
-    if try(service["x-repository-info"].deployable, false)
   }
 
   parameters = yamldecode(file("${path.module}/config/parameters.yml"))["parameters"]
