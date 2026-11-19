@@ -17,7 +17,7 @@ module "lambda_gh_repository" {
 
   for_each = local.lambdas
 
-  name            = "${var.project_name}-${each.key}"
+  name            = "${var.project_name}-${each.key}-lmb"
   description     = each.value.repo_description
   visibility      = each.value.visibility
   aws_region      = data.aws_region.current.name
