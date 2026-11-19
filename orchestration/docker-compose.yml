@@ -145,6 +145,24 @@ volumes:
   grafana-data:
   certbot-certs:
 
+x-lambdas:
+  backup:
+    profiles: [ backup ]
+    env_file:
+      - ./env/backup/prd.env
+    environment:
+      PGPASSWORD: ${API_DB_PASSWORD}
+    x-repository-info:
+      type: lambda
+      repo_description: "Portfolio Backup lambda"
+      deployable: true
+      visibility: public
+    x-subdomain: null
+    x-diagram:
+      kind: lambda
+      stack: Backup su S3
+      calls: [ postgres ]
+
 x-platform:
   nodes:
     browser: { label: Browser, kind: client }
