@@ -16,7 +16,7 @@ locals {
     for name, lambda in local.lambdas_data :
     name => merge(
       { name = lambda },
-      service["x-repository-info"]
+      lambda["x-repository-info"]
     )
   }
 
