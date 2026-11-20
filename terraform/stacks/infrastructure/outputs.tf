@@ -8,9 +8,9 @@ output "ec2_public_ip" {
 }
 
 output "frontend_url" {
-  value = var.domain_ready ? "https://${local.base_domain}" : "http://${module.ec2[0].public_ip}"
+  value = var.domain_ready ? "https://${local.base_domain}" : "http://${module.ec2.public_ip}"
 }
 
 output "admin_url" {
-  value = var.domain_ready ? "https://${local.admin_domain}" : "http://${module.ec2[0].public_ip}:8080"
+  value = var.domain_ready ? "https://${local.admin_domain}" : "http://${module.ec2.public_ip}:8080"
 }
