@@ -39,7 +39,7 @@ services:
     x-diagram:
       kind: frontend
       stack: Angular
-      public: [ DOMAIN ]
+      public: [ DOMINIO ]
       uses: [ ECR ]
 
   admin:
@@ -58,7 +58,7 @@ services:
     x-diagram:
       kind: frontend
       stack: React
-      public: [ admin.DOMAIN ]
+      public: [ admin.DOMINIO ]
       uses: [ ECR ]
 
   api:
@@ -77,7 +77,7 @@ services:
     x-diagram:
       kind: backend
       stack: Django + DRF
-      public: [ DOMAIN/api, admin.DOMAIN/api ]
+      public: [ DOMINIO/api, admin.DOMINIO/api ]
       calls: [ postgres ]
       uses: [ ECR, SSM ]
 
@@ -108,7 +108,7 @@ services:
     profiles:
       - monitoring
     environment:
-      - GF_SERVER_ROOT_URL=https://grafana.DOMAIN
+      - GF_SERVER_ROOT_URL=https://grafana.DOMINIO
       - GF_AUTH_ANONYMOUS_ENABLED=false
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
     volumes:
@@ -120,7 +120,7 @@ services:
     x-diagram:
       kind: monitoring
       stack: Grafana
-      public: [ grafana.DOMAIN ]
+      public: [ grafana.DOMINIO ]
 
 volumes:
   postgres-data:

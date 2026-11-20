@@ -1,2 +1,2 @@
-root_domain        = "unholyzara.dev"
-domain_ready       = false
+root_domain  = "DOMINIO"
+domain_ready = false

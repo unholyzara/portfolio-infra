@@ -20,7 +20,7 @@ env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   TF_DIR: terraform/stacks/infrastructure
   COMPOSE_FILE: orchestration/docker-compose.yml
-  DOMAIN: unholyzara.dev
+  DOMAIN: DOMINIO
   SCRIPTS: orchestration/scripts/helpers/architecture_pipeline
   OUT: orchestration/scripts/architecture/output
   FINAL_DIR: orchestration/diagram

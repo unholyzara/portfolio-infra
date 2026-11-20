@@ -28,7 +28,7 @@ def resolve_domain(values, domain):
 
     for value in normalize_list(values):
         if domain:
-            value = value.replace("DOMAIN", domain)
+            value = value.replace("DOMINIO", domain)
 
         result.append(value)
 
