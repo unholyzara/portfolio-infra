@@ -4,18 +4,22 @@ on:
   workflow_dispatch:
     inputs:
       service:
-        description: "Service name"
+        description: "Service name (empty = all deployable services)"
         type: string
-        required: true
-      environment:
+        required: false
+      to_environment:
         description: "Target environment"
         type: choice
         options: [beta, prd]
         required: true
+      from_environment:
+        description: "Copy the deployed image tag from this environment"
+        type: string
+        required: false
       image_tag:
         description: "Image tag to deploy (e.g. main-abc1234)"
         type: string
-        required: true
+        required: false
       dry_run:
         description: "Dry run"
         type: boolean
@@ -28,56 +32,101 @@ on:
     types: [deploy-service]
 
 jobs:
-  deploy:
+  prepare:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
+    outputs:
+      services: ${{ steps.inputs.outputs.services }}
+      to_environment: ${{ steps.inputs.outputs.to_environment }}
+      from_environment: ${{ steps.inputs.outputs.from_environment }}
+      image_tag: ${{ steps.inputs.outputs.image_tag }}
+      dry_run: ${{ steps.inputs.outputs.dry_run }}
+      run_migrations: ${{ steps.inputs.outputs.run_migrations }}
     steps:
       - name: Checkout portfolio-infra
         uses: actions/checkout@v4
 
-      - name: Resolve inputs
+      - name: Resolve and validate inputs
         id: inputs
         env:
           EVENT_NAME: ${{ github.event_name }}
           DISPATCH_SERVICE: ${{ github.event.client_payload.service }}
-          DISPATCH_ENVIRONMENT: ${{ github.event.client_payload.environment }}
+          DISPATCH_TO_ENVIRONMENT: ${{ github.event.client_payload.to_environment }}
+          DISPATCH_FROM_ENVIRONMENT: ${{ github.event.client_payload.from_environment }}
           DISPATCH_IMAGE_TAG: ${{ github.event.client_payload.image_tag }}
           DISPATCH_DRY_RUN: ${{ github.event.client_payload.dry_run }}
           DISPATCH_RUN_MIGRATIONS: ${{ github.event.client_payload.run_migrations }}
           INPUT_SERVICE: ${{ inputs.service }}
-          INPUT_ENVIRONMENT: ${{ inputs.environment }}
+          INPUT_TO_ENVIRONMENT: ${{ inputs.to_environment }}
+          INPUT_FROM_ENVIRONMENT: ${{ inputs.from_environment }}
           INPUT_IMAGE_TAG: ${{ inputs.image_tag }}
           INPUT_DRY_RUN: ${{ inputs.dry_run }}
           INPUT_RUN_MIGRATIONS: ${{ inputs.run_migrations }}
         run: |
           if [ "${EVENT_NAME}" = "repository_dispatch" ]; then
             SERVICE="${DISPATCH_SERVICE}"
-            ENVIRONMENT="${DISPATCH_ENVIRONMENT}"
+            TO_ENVIRONMENT="${DISPATCH_TO_ENVIRONMENT}"
+            FROM_ENVIRONMENT="${DISPATCH_FROM_ENVIRONMENT}"
             IMAGE_TAG="${DISPATCH_IMAGE_TAG}"
             DRY_RUN="${DISPATCH_DRY_RUN:-false}"
-            RUN_MIGRATIONS="${DISPATCH_RUN_MIGRATIONS}"
+            RUN_MIGRATIONS="${DISPATCH_RUN_MIGRATIONS:-false}"
           else
             SERVICE="${INPUT_SERVICE}"
-            ENVIRONMENT="${INPUT_ENVIRONMENT}"
+            TO_ENVIRONMENT="${INPUT_TO_ENVIRONMENT}"
+            FROM_ENVIRONMENT="${INPUT_FROM_ENVIRONMENT}"
             IMAGE_TAG="${INPUT_IMAGE_TAG}"
             DRY_RUN="${INPUT_DRY_RUN}"
             RUN_MIGRATIONS="${INPUT_RUN_MIGRATIONS}"
           fi
 
-          [[ "${SERVICE}" =~ ^[a-z0-9-]+$ ]] || { echo "Invalid service" >&2; exit 1; }
-          [[ "${ENVIRONMENT}" =~ ^(beta|prd)$ ]] || { echo "Invalid environment" >&2; exit 1; }
-          [[ "${IMAGE_TAG}" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid image tag" >&2; exit 1; }
+          [[ -z "${SERVICE}" || "${SERVICE}" =~ ^[a-z0-9-]+$ ]] || { echo "Invalid service" >&2; exit 1; }
+          [[ "${TO_ENVIRONMENT}" =~ ^(beta|prd)$ ]] || { echo "Invalid to_environment" >&2; exit 1; }
+          [[ -z "${FROM_ENVIRONMENT}" || "${FROM_ENVIRONMENT}" =~ ^(beta|prd)$ ]] || { echo "Invalid from_environment" >&2; exit 1; }
+          [[ -z "${IMAGE_TAG}" || "${IMAGE_TAG}" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid image tag" >&2; exit 1; }
+          if [ -n "${FROM_ENVIRONMENT}" ] && [ -n "${IMAGE_TAG}" ]; then
+            echo "Specify either from_environment or image_tag, not both" >&2
+            exit 1
+          fi
+          if [ -z "${FROM_ENVIRONMENT}" ] && [ -z "${IMAGE_TAG}" ]; then
+            echo "Specify from_environment or image_tag" >&2
+            exit 1
+          fi
           [[ "${DRY_RUN}" =~ ^(true|false)$ ]] || { echo "Invalid dry_run value" >&2; exit 1; }
+          [[ "${RUN_MIGRATIONS}" =~ ^(true|false)$ ]] || { echo "Invalid run_migrations value" >&2; exit 1; }
+
+          SERVICES=$(SERVICE_INPUT="${SERVICE}" ruby -rjson -ryaml -e '
+            compose = YAML.safe_load_file("orchestration/docker-compose.yml")
+            available = compose.fetch("services").filter_map do |name, config|
+              name if config.dig("x-repository-info", "deployable") == true
+            end
+            selected = ENV.fetch("SERVICE_INPUT").empty? ? available : [ENV.fetch("SERVICE_INPUT")]
+            invalid = selected - available
+            abort "Unknown or non-deployable service: #{invalid.join(", ")}" unless invalid.empty?
+            puts JSON.generate(selected)
+          ')
 
           {
-            echo "service=${SERVICE}"
-            echo "environment=${ENVIRONMENT}"
+            echo "services=${SERVICES}"
+            echo "to_environment=${TO_ENVIRONMENT}"
+            echo "from_environment=${FROM_ENVIRONMENT}"
             echo "image_tag=${IMAGE_TAG}"
             echo "dry_run=${DRY_RUN}"
             echo "run_migrations=${RUN_MIGRATIONS}"
           } >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        service: ${{ fromJson(needs.prepare.outputs.services) }}
+    steps:
+      - name: Checkout portfolio-infra
+        uses: actions/checkout@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -85,10 +134,28 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: eu-south-1
 
+      - name: Resolve image tag
+        id: tag
+        env:
+          SERVICE: ${{ matrix.service }}
+          FROM_ENVIRONMENT: ${{ needs.prepare.outputs.from_environment }}
+          INPUT_IMAGE_TAG: ${{ needs.prepare.outputs.image_tag }}
+        run: |
+          TAG="${INPUT_IMAGE_TAG}"
+          if [ -n "${FROM_ENVIRONMENT}" ]; then
+            TAG=$(aws ssm get-parameter \
+              --name "/portfolio/${FROM_ENVIRONMENT}/deploy/${SERVICE}" \
+              --query Parameter.Value \
+              --output text)
+          fi
+          [ -n "${TAG}" ] || { echo "No image tag found for ${SERVICE}" >&2; exit 1; }
+          [[ "${TAG}" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid image tag" >&2; exit 1; }
+          echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
+
       - name: Verify image exists in ECR
         env:
-          SERVICE: ${{ steps.inputs.outputs.service }}
-          IMAGE_TAG: ${{ steps.inputs.outputs.image_tag }}
+          SERVICE: ${{ matrix.service }}
+          IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
         run: |
           aws ecr describe-images \
             --repository-name "portfolio-${SERVICE}" \
@@ -99,11 +166,11 @@ jobs:
       - name: Get EC2 instance ID
         id: ec2
         env:
-          ENVIRONMENT: ${{ steps.inputs.outputs.environment }}
+          TO_ENVIRONMENT: ${{ needs.prepare.outputs.to_environment }}
         run: |
           INSTANCE_ID=$(aws ec2 describe-instances \
             --filters \
-              "Name=tag:Name,Values=portfolio-${ENVIRONMENT}" \
+              "Name=tag:Name,Values=portfolio-${TO_ENVIRONMENT}" \
               "Name=instance-state-name,Values=running" \
             --query "Reservations[0].Instances[0].InstanceId" \
             --output text)
@@ -111,16 +178,16 @@ jobs:
           echo "instance_id=${INSTANCE_ID}" >> "$GITHUB_OUTPUT"
 
       - name: Inject secrets and deploy via SSM
-        if: steps.ec2.outputs.instance_id != '' && steps.inputs.outputs.dry_run == 'false'
+        if: steps.ec2.outputs.instance_id != '' && needs.prepare.outputs.dry_run == 'false'
         env:
-          SERVICE: ${{ steps.inputs.outputs.service }}
-          IMAGE_TAG: ${{ steps.inputs.outputs.image_tag }}
-          ENVIRONMENT: ${{ steps.inputs.outputs.environment }}
-          RUN_MIGRATIONS: ${{ steps.inputs.outputs.run_migrations }}
+          SERVICE: ${{ matrix.service }}
+          IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
+          TO_ENVIRONMENT: ${{ needs.prepare.outputs.to_environment }}
+          RUN_MIGRATIONS: ${{ needs.prepare.outputs.run_migrations }}
           INSTANCE_ID: ${{ steps.ec2.outputs.instance_id }}
         run: |
           ENV_VAR=$(echo "${SERVICE^^}_TAG" | tr '-' '_')
-          SECRETS_FILE="./orchestration/services/${SERVICE}/secrets/${ENVIRONMENT}.yml"
+          SECRETS_FILE="./orchestration/services/${SERVICE}/secrets/${TO_ENVIRONMENT}.yml"
 
           INJECT_COMMANDS=""
           if [ -f "${SECRETS_FILE}" ]; then
@@ -136,7 +203,7 @@ jobs:
             ${INJECT_COMMANDS},
             'docker compose pull ${SERVICE}'"
 
-          if [ "${RUN_MIGRATIONS}" = "true" ]; then
+          if [ "${RUN_MIGRATIONS}" = "true" ] && [ "${SERVICE}" = "api" ]; then
             COMMANDS="${COMMANDS},'docker compose run --rm ${SERVICE} python manage.py migrate'"
           fi
 
@@ -146,7 +213,7 @@ jobs:
             --instance-ids "${INSTANCE_ID}" \
             --document-name "AWS-RunShellScript" \
             --parameters commands="${COMMANDS}" \
-            --comment "Deploy ${SERVICE}:${IMAGE_TAG} to ${ENVIRONMENT}" \
+            --comment "Deploy ${SERVICE}:${IMAGE_TAG} to ${TO_ENVIRONMENT}" \
             --query "Command.CommandId" \
             --output text)
 
@@ -173,40 +240,42 @@ jobs:
           [ "${STATUS}" = "Success" ] || { echo "Timed out waiting for command" >&2; exit 1; }
 
       - name: No running instance
-        if: steps.ec2.outputs.instance_id == '' && steps.inputs.outputs.dry_run == 'false'
+        if: steps.ec2.outputs.instance_id == '' && needs.prepare.outputs.dry_run == 'false'
         run: echo "::warning::No running EC2 found. The tag is recorded in SSM and applied on the next instance creation; a stopped instance keeps its old .env until the next deploy."
 
       - name: No running instance during dry run
-        if: steps.ec2.outputs.instance_id == '' && steps.inputs.outputs.dry_run == 'true'
+        if: steps.ec2.outputs.instance_id == '' && needs.prepare.outputs.dry_run == 'true'
         run: |
           echo "::notice::Dry run: no running EC2 found; no deployment or SSM update was performed."
 
       - name: Record deployed tag in SSM
-        if: steps.inputs.outputs.dry_run == 'false'
+        if: needs.prepare.outputs.dry_run == 'false'
         env:
-          SERVICE: ${{ steps.inputs.outputs.service }}
-          IMAGE_TAG: ${{ steps.inputs.outputs.image_tag }}
-          ENVIRONMENT: ${{ steps.inputs.outputs.environment }}
+          SERVICE: ${{ matrix.service }}
+          IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
+          TO_ENVIRONMENT: ${{ needs.prepare.outputs.to_environment }}
         run: |
           aws ssm put-parameter \
-            --name "/portfolio/${ENVIRONMENT}/deploy/${SERVICE}" \
+            --name "/portfolio/${TO_ENVIRONMENT}/deploy/${SERVICE}" \
             --type String \
             --value "${IMAGE_TAG}" \
             --overwrite
 
       - name: Summary
         env:
-          SERVICE: ${{ steps.inputs.outputs.service }}
-          ENVIRONMENT: ${{ steps.inputs.outputs.environment }}
-          IMAGE_TAG: ${{ steps.inputs.outputs.image_tag }}
-          DRY_RUN: ${{ steps.inputs.outputs.dry_run }}
-          RUN_MIGRATIONS: ${{ steps.inputs.outputs.run_migrations }}
+          SERVICE: ${{ matrix.service }}
+          TO_ENVIRONMENT: ${{ needs.prepare.outputs.to_environment }}
+          FROM_ENVIRONMENT: ${{ needs.prepare.outputs.from_environment }}
+          IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
+          DRY_RUN: ${{ needs.prepare.outputs.dry_run }}
+          RUN_MIGRATIONS: ${{ needs.prepare.outputs.run_migrations }}
           INSTANCE_ID: ${{ steps.ec2.outputs.instance_id }}
         run: |
           {
             echo "### Deploy service"
             echo "- service: \`${SERVICE}\`"
-            echo "- environment: \`${ENVIRONMENT}\`"
+            echo "- target environment: \`${TO_ENVIRONMENT}\`"
+            [ -z "${FROM_ENVIRONMENT}" ] || echo "- source environment: \`${FROM_ENVIRONMENT}\`"
             echo "- image tag: \`${IMAGE_TAG}\`"
             echo "- instance: \`${INSTANCE_ID:-none}\`"
             echo "- run migrations: \`${RUN_MIGRATIONS}\`"

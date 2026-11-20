@@ -4,27 +4,26 @@ on:
   workflow_dispatch:
     inputs:
       service:
-        description: "Lambda service name (ECR repo: portfolio-<service>)"
+        description: "Lambda service name (empty = all Lambda services)"
         type: string
-        required: true
-        default: backup-lmb
-      environment:
+        required: false
+      to_environment:
         description: "Target environment"
         type: choice
         options: [beta, prd]
         required: true
+      from_environment:
+        description: "Copy the deployed image tag from this environment"
+        type: string
+        required: false
       image_tag:
-        description: "Image tag to deploy (empty = reuse the tag recorded in SSM)"
+        description: "Image tag to deploy (empty = reuse the recorded tag)"
         type: string
         required: false
       dry_run:
         description: "Dry run"
         type: boolean
         default: true
-
-concurrency:
-  group: deploy-lambda-${{ inputs.service }}-${{ inputs.environment }}
-  cancel-in-progress: false
 
 env:
   AWS_REGION: eu-south-1
@@ -35,12 +34,14 @@ env:
   ENV_VARS_DIR: terraform/environments
 
 jobs:
-  deploy:
+  prepare:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-
+    outputs:
+      services: ${{ steps.inputs.outputs.services }}
+      to_environment: ${{ steps.inputs.outputs.to_environment }}
+      from_environment: ${{ steps.inputs.outputs.from_environment }}
+      image_tag: ${{ steps.inputs.outputs.image_tag }}
+      dry_run: ${{ steps.inputs.outputs.dry_run }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,21 +50,54 @@ jobs:
         id: inputs
         env:
           INPUT_SERVICE: ${{ inputs.service }}
-          INPUT_ENVIRONMENT: ${{ inputs.environment }}
+          INPUT_TO_ENVIRONMENT: ${{ inputs.to_environment }}
+          INPUT_FROM_ENVIRONMENT: ${{ inputs.from_environment }}
           INPUT_IMAGE_TAG: ${{ inputs.image_tag }}
           INPUT_DRY_RUN: ${{ inputs.dry_run }}
         run: |
-          [[ "${INPUT_SERVICE}" =~ ^[a-z0-9-]+$ ]] || { echo "Invalid service" >&2; exit 1; }
-          [[ "${INPUT_ENVIRONMENT}" =~ ^(beta|prd)$ ]] || { echo "Invalid environment" >&2; exit 1; }
+          [[ -z "${INPUT_SERVICE}" || "${INPUT_SERVICE}" =~ ^[a-z0-9-]+$ ]] || { echo "Invalid service" >&2; exit 1; }
+          [[ "${INPUT_TO_ENVIRONMENT}" =~ ^(beta|prd)$ ]] || { echo "Invalid to_environment" >&2; exit 1; }
+          [[ -z "${INPUT_FROM_ENVIRONMENT}" || "${INPUT_FROM_ENVIRONMENT}" =~ ^(beta|prd)$ ]] || { echo "Invalid from_environment" >&2; exit 1; }
           [[ -z "${INPUT_IMAGE_TAG}" || "${INPUT_IMAGE_TAG}" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid image tag" >&2; exit 1; }
+          if [ -n "${INPUT_FROM_ENVIRONMENT}" ] && [ -n "${INPUT_IMAGE_TAG}" ]; then
+            echo "Specify either from_environment or image_tag, not both" >&2
+            exit 1
+          fi
           [[ "${INPUT_DRY_RUN}" =~ ^(true|false)$ ]] || { echo "Invalid dry_run value" >&2; exit 1; }
 
+          SERVICES=$(SERVICE_INPUT="${INPUT_SERVICE}" ruby -rjson -ryaml -e '
+            compose = YAML.safe_load_file("orchestration/docker-compose.yml")
+            available = compose.fetch("x-lambdas").keys
+            selected = ENV.fetch("SERVICE_INPUT").empty? ? available : [ENV.fetch("SERVICE_INPUT")]
+            invalid = selected - available
+            abort "Unknown Lambda service: #{invalid.join(", ")}" unless invalid.empty?
+            puts JSON.generate(selected)
+          ')
+
           {
-            echo "service=${INPUT_SERVICE}"
-            echo "environment=${INPUT_ENVIRONMENT}"
+            echo "services=${SERVICES}"
+            echo "to_environment=${INPUT_TO_ENVIRONMENT}"
+            echo "from_environment=${INPUT_FROM_ENVIRONMENT}"
             echo "image_tag=${INPUT_IMAGE_TAG}"
             echo "dry_run=${INPUT_DRY_RUN}"
           } >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    concurrency:
+      group: deploy-lambda-${{ matrix.service }}-${{ needs.prepare.outputs.to_environment }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.prepare.outputs.services) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -74,24 +108,26 @@ jobs:
       - name: Resolve image tag
         id: tag
         env:
-          SERVICE: ${{ steps.inputs.outputs.service }}
-          ENVIRONMENT: ${{ steps.inputs.outputs.environment }}
-          INPUT_IMAGE_TAG: ${{ steps.inputs.outputs.image_tag }}
+          SERVICE: ${{ matrix.service }}
+          TO_ENVIRONMENT: ${{ needs.prepare.outputs.to_environment }}
+          FROM_ENVIRONMENT: ${{ needs.prepare.outputs.from_environment }}
+          INPUT_IMAGE_TAG: ${{ needs.prepare.outputs.image_tag }}
         run: |
           TAG="${INPUT_IMAGE_TAG}"
+          TAG_ENVIRONMENT="${FROM_ENVIRONMENT:-${TO_ENVIRONMENT}}"
           if [ -z "${TAG}" ]; then
             TAG=$(aws ssm get-parameter \
-              --name "/portfolio/${ENVIRONMENT}/deploy/${SERVICE}" \
+              --name "/portfolio/${TAG_ENVIRONMENT}/deploy/${SERVICE}" \
               --query Parameter.Value \
-              --output text 2>/dev/null || true)
+              --output text)
           fi
-          [ -n "${TAG}" ] || { echo "No image_tag provided and none recorded in SSM" >&2; exit 1; }
-          [[ "${TAG}" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid tag recorded in SSM" >&2; exit 1; }
+          [ -n "${TAG}" ] || { echo "No image tag found for ${SERVICE}" >&2; exit 1; }
+          [[ "${TAG}" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid image tag" >&2; exit 1; }
           echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Verify image exists in ECR
         env:
-          SERVICE: ${{ steps.inputs.outputs.service }}
+          SERVICE: ${{ matrix.service }}
           IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
         run: |
           aws ecr describe-images \
@@ -109,50 +145,52 @@ jobs:
       - name: Terraform init
         working-directory: ${{ env.STACK_DIR }}
         env:
-          SERVICE: ${{ steps.inputs.outputs.service }}
-          ENVIRONMENT: ${{ steps.inputs.outputs.environment }}
+          SERVICE: ${{ matrix.service }}
+          TO_ENVIRONMENT: ${{ needs.prepare.outputs.to_environment }}
           TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
         run: |
           terraform init -input=false \
             -backend-config="bucket=${TF_STATE_BUCKET}" \
-            -backend-config="key=lambdas/${SERVICE}/${ENVIRONMENT}.tfstate" \
+            -backend-config="key=lambdas/${SERVICE}/${TO_ENVIRONMENT}.tfstate" \
             -backend-config="region=${AWS_REGION}"
 
       - name: Terraform plan
         working-directory: ${{ env.STACK_DIR }}
         env:
-          SERVICE: ${{ steps.inputs.outputs.service }}
-          ENVIRONMENT: ${{ steps.inputs.outputs.environment }}
+          SERVICE: ${{ matrix.service }}
+          TO_ENVIRONMENT: ${{ needs.prepare.outputs.to_environment }}
           IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
         run: |
           ROOT="${GITHUB_WORKSPACE}"
           VAR_FILES=()
-          for f in "${ROOT}/${COMMON_VARS}" "${ROOT}/${ENV_VARS_DIR}/${ENVIRONMENT}.tfvars"; do
+          for f in "${ROOT}/${COMMON_VARS}" "${ROOT}/${ENV_VARS_DIR}/${TO_ENVIRONMENT}.tfvars"; do
             [ -f "$f" ] && VAR_FILES+=("-var-file=$f")
           done
 
           terraform plan -input=false -out=tfplan \
             "${VAR_FILES[@]}" \
-            -var "environment=${ENVIRONMENT}" \
+            -var "environment=${TO_ENVIRONMENT}" \
             -var "service=${SERVICE}" \
             -var "image_tag=${IMAGE_TAG}"
 
       - name: Terraform apply
-        if: steps.inputs.outputs.dry_run == 'false'
+        if: needs.prepare.outputs.dry_run == 'false'
         working-directory: ${{ env.STACK_DIR }}
         run: terraform apply -input=false tfplan
 
       - name: Summary
         env:
-          SERVICE: ${{ steps.inputs.outputs.service }}
-          ENVIRONMENT: ${{ steps.inputs.outputs.environment }}
+          SERVICE: ${{ matrix.service }}
+          TO_ENVIRONMENT: ${{ needs.prepare.outputs.to_environment }}
+          FROM_ENVIRONMENT: ${{ needs.prepare.outputs.from_environment }}
           IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
-          DRY_RUN: ${{ steps.inputs.outputs.dry_run }}
+          DRY_RUN: ${{ needs.prepare.outputs.dry_run }}
         run: |
           {
             echo "### Deploy Lambda"
             echo "- service: \`${SERVICE}\`"
-            echo "- environment: \`${ENVIRONMENT}\`"
+            echo "- target environment: \`${TO_ENVIRONMENT}\`"
+            [ -z "${FROM_ENVIRONMENT}" ] || echo "- source environment: \`${FROM_ENVIRONMENT}\`"
             echo "- image tag: \`${IMAGE_TAG}\`"
             echo "- dry run: \`${DRY_RUN}\`"
           } >> "$GITHUB_STEP_SUMMARY"
