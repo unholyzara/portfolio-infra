@@ -16,6 +16,10 @@ on:
         description: "Image tag to deploy (e.g. main-abc1234)"
         type: string
         required: true
+      dry_run:
+        description: "Dry run"
+        type: boolean
+        default: true
       run_migrations:
         description: "Run database migrations before starting the container"
         type: boolean
@@ -40,32 +44,38 @@ jobs:
           DISPATCH_SERVICE: ${{ github.event.client_payload.service }}
           DISPATCH_ENVIRONMENT: ${{ github.event.client_payload.environment }}
           DISPATCH_IMAGE_TAG: ${{ github.event.client_payload.image_tag }}
+          DISPATCH_DRY_RUN: ${{ github.event.client_payload.dry_run }}
           DISPATCH_RUN_MIGRATIONS: ${{ github.event.client_payload.run_migrations }}
           INPUT_SERVICE: ${{ inputs.service }}
           INPUT_ENVIRONMENT: ${{ inputs.environment }}
           INPUT_IMAGE_TAG: ${{ inputs.image_tag }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
           INPUT_RUN_MIGRATIONS: ${{ inputs.run_migrations }}
         run: |
           if [ "${EVENT_NAME}" = "repository_dispatch" ]; then
             SERVICE="${DISPATCH_SERVICE}"
             ENVIRONMENT="${DISPATCH_ENVIRONMENT}"
             IMAGE_TAG="${DISPATCH_IMAGE_TAG}"
+            DRY_RUN="${DISPATCH_DRY_RUN:-false}"
             RUN_MIGRATIONS="${DISPATCH_RUN_MIGRATIONS}"
           else
             SERVICE="${INPUT_SERVICE}"
             ENVIRONMENT="${INPUT_ENVIRONMENT}"
             IMAGE_TAG="${INPUT_IMAGE_TAG}"
+            DRY_RUN="${INPUT_DRY_RUN}"
             RUN_MIGRATIONS="${INPUT_RUN_MIGRATIONS}"
           fi
 
           [[ "${SERVICE}" =~ ^[a-z0-9-]+$ ]] || { echo "Invalid service" >&2; exit 1; }
           [[ "${ENVIRONMENT}" =~ ^(beta|prd)$ ]] || { echo "Invalid environment" >&2; exit 1; }
           [[ "${IMAGE_TAG}" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid image tag" >&2; exit 1; }
+          [[ "${DRY_RUN}" =~ ^(true|false)$ ]] || { echo "Invalid dry_run value" >&2; exit 1; }
 
           {
             echo "service=${SERVICE}"
             echo "environment=${ENVIRONMENT}"
             echo "image_tag=${IMAGE_TAG}"
+            echo "dry_run=${DRY_RUN}"
             echo "run_migrations=${RUN_MIGRATIONS}"
           } >> "$GITHUB_OUTPUT"
 
@@ -101,7 +111,7 @@ jobs:
           echo "instance_id=${INSTANCE_ID}" >> "$GITHUB_OUTPUT"
 
       - name: Inject secrets and deploy via SSM
-        if: steps.ec2.outputs.instance_id != ''
+        if: steps.ec2.outputs.instance_id != '' && steps.inputs.outputs.dry_run == 'false'
         env:
           SERVICE: ${{ steps.inputs.outputs.service }}
           IMAGE_TAG: ${{ steps.inputs.outputs.image_tag }}
@@ -163,10 +173,16 @@ jobs:
           [ "${STATUS}" = "Success" ] || { echo "Timed out waiting for command" >&2; exit 1; }
 
       - name: No running instance
-        if: steps.ec2.outputs.instance_id == ''
+        if: steps.ec2.outputs.instance_id == '' && steps.inputs.outputs.dry_run == 'false'
         run: echo "::warning::No running EC2 found. The tag is recorded in SSM and applied on the next instance creation; a stopped instance keeps its old .env until the next deploy."
 
+      - name: No running instance during dry run
+        if: steps.ec2.outputs.instance_id == '' && steps.inputs.outputs.dry_run == 'true'
+        run: |
+          echo "::notice::Dry run: no running EC2 found; no deployment or SSM update was performed."
+
       - name: Record deployed tag in SSM
+        if: steps.inputs.outputs.dry_run == 'false'
         env:
           SERVICE: ${{ steps.inputs.outputs.service }}
           IMAGE_TAG: ${{ steps.inputs.outputs.image_tag }}
@@ -177,3 +193,22 @@ jobs:
             --type String \
             --value "${IMAGE_TAG}" \
             --overwrite
+
+      - name: Summary
+        env:
+          SERVICE: ${{ steps.inputs.outputs.service }}
+          ENVIRONMENT: ${{ steps.inputs.outputs.environment }}
+          IMAGE_TAG: ${{ steps.inputs.outputs.image_tag }}
+          DRY_RUN: ${{ steps.inputs.outputs.dry_run }}
+          RUN_MIGRATIONS: ${{ steps.inputs.outputs.run_migrations }}
+          INSTANCE_ID: ${{ steps.ec2.outputs.instance_id }}
+        run: |
+          {
+            echo "### Deploy service"
+            echo "- service: \`${SERVICE}\`"
+            echo "- environment: \`${ENVIRONMENT}\`"
+            echo "- image tag: \`${IMAGE_TAG}\`"
+            echo "- instance: \`${INSTANCE_ID:-none}\`"
+            echo "- run migrations: \`${RUN_MIGRATIONS}\`"
+            echo "- dry run: \`${DRY_RUN}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

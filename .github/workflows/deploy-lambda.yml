@@ -17,11 +17,10 @@ on:
         description: "Image tag to deploy (empty = reuse the tag recorded in SSM)"
         type: string
         required: false
-      action:
-        description: "Terraform action"
-        type: choice
-        options: [plan, apply]
-        default: plan
+      dry_run:
+        description: "Dry run"
+        type: boolean
+        default: true
 
 concurrency:
   group: deploy-lambda-${{ inputs.service }}-${{ inputs.environment }}
@@ -52,18 +51,18 @@ jobs:
           INPUT_SERVICE: ${{ inputs.service }}
           INPUT_ENVIRONMENT: ${{ inputs.environment }}
           INPUT_IMAGE_TAG: ${{ inputs.image_tag }}
-          INPUT_ACTION: ${{ inputs.action }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
         run: |
           [[ "${INPUT_SERVICE}" =~ ^[a-z0-9-]+$ ]] || { echo "Invalid service" >&2; exit 1; }
           [[ "${INPUT_ENVIRONMENT}" =~ ^(beta|prd)$ ]] || { echo "Invalid environment" >&2; exit 1; }
           [[ -z "${INPUT_IMAGE_TAG}" || "${INPUT_IMAGE_TAG}" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid image tag" >&2; exit 1; }
-          [[ "${INPUT_ACTION}" =~ ^(plan|apply)$ ]] || { echo "Invalid action" >&2; exit 1; }
+          [[ "${INPUT_DRY_RUN}" =~ ^(true|false)$ ]] || { echo "Invalid dry_run value" >&2; exit 1; }
 
           {
             echo "service=${INPUT_SERVICE}"
             echo "environment=${INPUT_ENVIRONMENT}"
             echo "image_tag=${INPUT_IMAGE_TAG}"
-            echo "action=${INPUT_ACTION}"
+            echo "dry_run=${INPUT_DRY_RUN}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials
@@ -139,7 +138,7 @@ jobs:
             -var "image_tag=${IMAGE_TAG}"
 
       - name: Terraform apply
-        if: steps.inputs.outputs.action == 'apply'
+        if: steps.inputs.outputs.dry_run == 'false'
         working-directory: ${{ env.STACK_DIR }}
         run: terraform apply -input=false tfplan
 
@@ -148,12 +147,12 @@ jobs:
           SERVICE: ${{ steps.inputs.outputs.service }}
           ENVIRONMENT: ${{ steps.inputs.outputs.environment }}
           IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
-          ACTION: ${{ steps.inputs.outputs.action }}
+          DRY_RUN: ${{ steps.inputs.outputs.dry_run }}
         run: |
           {
             echo "### Deploy Lambda"
             echo "- service: \`${SERVICE}\`"
             echo "- environment: \`${ENVIRONMENT}\`"
             echo "- image tag: \`${IMAGE_TAG}\`"
-            echo "- action: \`${ACTION}\`"
+            echo "- dry run: \`${DRY_RUN}\`"
           } >> "$GITHUB_STEP_SUMMARY"

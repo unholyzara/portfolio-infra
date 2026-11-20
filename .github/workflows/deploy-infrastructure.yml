@@ -9,10 +9,10 @@ on:
         options: [beta, prd]
         default: beta
         required: true
-      apply:
-        description: "Apply the plan"
+      dry_run:
+        description: "Dry run"
         type: boolean
-        default: false
+        default: true
 
 concurrency:
   group: terraform-${{ inputs.environment }}
@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   terraform:
-    name: Terraform ${{ inputs.apply && 'apply' || 'plan' }} ${{ inputs.environment }}
+    name: Terraform ${{ inputs.dry_run && 'plan' || 'apply' }} ${{ inputs.environment }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -61,5 +61,5 @@ jobs:
             -var-file="vars/${ENVIRONMENT}.tfvars"
 
       - name: Terraform apply
-        if: inputs.apply
+        if: ${{ !inputs.dry_run }}
         run: terraform apply tfplan

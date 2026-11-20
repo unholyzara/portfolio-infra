@@ -3,10 +3,10 @@ name: Bootstrap services
 on:
   workflow_dispatch:
     inputs:
-      apply:
-        description: "Run terraform apply after reviewing the plan"
+      dry_run:
+        description: "Dry run"
         type: boolean
-        default: false
+        default: true
         required: true
 
 jobs:
@@ -47,7 +47,7 @@ jobs:
             -var-file=../common.tfvars \
 
       - name: Terraform apply
-        if: inputs.apply
+        if: ${{ !inputs.dry_run }}
         working-directory: terraform/stacks/global/
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}

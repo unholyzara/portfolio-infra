@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Non committare, carica solo l'output come artifact"
+        description: "Dry run"
         type: boolean
         default: false
 
