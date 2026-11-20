@@ -57,7 +57,7 @@ jobs:
         run: |
           terraform plan -out=tfplan \
             -var-file=../common.tfvars \
-            -var-file="vars/common.tfvars"
+            -var-file="vars/common.tfvars" \
             -var-file="vars/${ENVIRONMENT}.tfvars"
 
       - name: Terraform apply
