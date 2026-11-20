@@ -14,8 +14,3 @@ variable "tag_mutability" {
 variable "service_type" {
   type = string
 }
-
-variable "max_images" {
-  type    = number
-  default = 10
-}

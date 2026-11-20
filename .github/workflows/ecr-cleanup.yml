@@ -1,0 +1,48 @@
+name: ECR cleanup
+
+on:
+  schedule:
+    # GitHub cron uses UTC; run at 02:00 Europe/Rome in both CET and CEST.
+    - cron: "0 0,1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: ecr-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check scheduled run time
+        id: schedule
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [[ "${EVENT_NAME}" != "schedule" || "$(TZ=Europe/Rome date +%H)" == "02" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure AWS credentials
+        if: steps.schedule.outputs.run == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ECR_CLEANUP_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Keep five images per active branch and remove stale branches
+        if: steps.schedule.outputs.run == 'true'
+        env:
+          ECR_CLEANUP_REPOSITORIES: ${{ vars.ECR_CLEANUP_REPOSITORIES }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: python3 scripts/cleanup-ecr.py

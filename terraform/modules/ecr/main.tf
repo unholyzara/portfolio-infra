@@ -11,20 +11,3 @@ resource "aws_ecr_repository" "service" {
     Type    = var.service_type
   }
 }
-
-resource "aws_ecr_lifecycle_policy" "service" {
-  repository = aws_ecr_repository.service.name
-
-  policy = jsonencode({
-    rules = [{
-      rulePriority = 1
-      description  = "Keep last ${var.max_images} images"
-      selection = {
-        tagStatus   = "any"
-        countType   = "imageCountMoreThan"
-        countNumber = var.max_images
-      }
-      action = { type = "expire" }
-    }]
-  })
-}
