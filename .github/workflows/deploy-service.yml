@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       service:
-        description: "Service name (empty = all deployable services)"
+        description: "Comma-separated service names (empty = all deployable services)"
         type: string
         required: false
       to_environment:
@@ -78,7 +78,6 @@ jobs:
             RUN_MIGRATIONS="${INPUT_RUN_MIGRATIONS}"
           fi
 
-          [[ -z "${SERVICE}" || "${SERVICE}" =~ ^[a-z0-9-]+$ ]] || { echo "Invalid service" >&2; exit 1; }
           [[ "${TO_ENVIRONMENT}" =~ ^(beta|prd)$ ]] || { echo "Invalid to_environment" >&2; exit 1; }
           [[ -z "${FROM_ENVIRONMENT}" || "${FROM_ENVIRONMENT}" =~ ^(beta|prd)$ ]] || { echo "Invalid from_environment" >&2; exit 1; }
           [[ -z "${IMAGE_TAG}" || "${IMAGE_TAG}" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid image tag" >&2; exit 1; }
@@ -98,7 +97,11 @@ jobs:
             available = compose.fetch("services").filter_map do |name, config|
               name if config.dig("x-repository-info", "deployable") == true
             end
-            selected = ENV.fetch("SERVICE_INPUT").empty? ? available : [ENV.fetch("SERVICE_INPUT")]
+            input = ENV.fetch("SERVICE_INPUT")
+            selected = input.empty? ? available : input.split(",", -1).map(&:strip)
+            abort "Service list contains an empty name" if selected.any?(&:empty?)
+            duplicates = selected.select { |name| selected.count(name) > 1 }.uniq
+            abort "Duplicate services: #{duplicates.join(", ")}" unless duplicates.empty?
             invalid = selected - available
             abort "Unknown or non-deployable service: #{invalid.join(", ")}" unless invalid.empty?
             puts JSON.generate(selected)
