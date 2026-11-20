@@ -1,5 +1,5 @@
 output "backup_bucket_name" {
-  value = module.backup.backup.bucket_name
+  value = module.backup.bucket.name
 }
 
 output "lambda_secrets_names" {

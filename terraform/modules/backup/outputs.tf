@@ -1,3 +1,3 @@
-output "bucket_name" {
-  value = module.backup_bucket.name
+output "bucket" {
+  value = module.backup_bucket
 }

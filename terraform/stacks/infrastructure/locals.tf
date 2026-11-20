@@ -15,7 +15,7 @@ locals {
 
   backup_lambdas = {
     for name, lmb in local.lambda_data :
-    name => lmb
+    name => { name : lmb }
     if try(lmb["x-backup"], false)
   }
   lambda_secrets = {
