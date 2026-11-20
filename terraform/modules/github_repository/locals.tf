@@ -1,9 +1,12 @@
 locals {
   secrets = {
-    "AWS_REGION"          = var.aws_region,
-    "AWS_DEPLOY_ROLE_ARN" = var.deploy_role_arn,
-    "ECR_REPO_URL"        = var.ecr_repo_url,
-    "INFRA_REPO_TOKEN"    = var.github_token,
+    "AWS_REGION"           = var.aws_region,
+    "AWS_DEPLOY_ROLE_ARN"  = var.deploy_role_arn,
+    "ECR_REPO_URL"         = var.ecr_repo_url,
+    "INFRA_REPO_TOKEN"     = var.github_token,
+    "INFRA_REPO_FULL_NAME" = var.infra_repo_full_name,
+    "DEPLOY_SERVICE"       = var.deploy_service,
+    "DEPLOY_WORKFLOW"      = var.deploy_workflow,
   }
 
   workflow_templates_dir_path = "${path.module}/../config/templates/workflows"

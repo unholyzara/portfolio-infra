@@ -3,13 +3,16 @@ module "service_gh_repository" {
 
   for_each = local.services
 
-  name            = "${var.project_name}-${each.key}"
-  description     = each.value.repo_description
-  visibility      = each.value.visibility
-  aws_region      = data.aws_region.current.name
-  github_token    = var.github_token
-  deploy_role_arn = data.aws_iam_role.deploy.arn
-  ecr_repo_url    = module.ecr_service[each.key].ecr_url
+  name                 = "${var.project_name}-${each.key}"
+  description          = each.value.repo_description
+  visibility           = each.value.visibility
+  aws_region           = data.aws_region.current.name
+  github_token         = var.github_token
+  deploy_role_arn      = data.aws_iam_role.deploy.arn
+  ecr_repo_url         = module.ecr_service[each.key].ecr_url
+  infra_repo_full_name = "${var.github_org}/${var.infra_repo_name}"
+  deploy_service       = each.key
+  deploy_workflow      = "deploy-service.yml"
 }
 
 module "lambda_gh_repository" {
@@ -17,11 +20,14 @@ module "lambda_gh_repository" {
 
   for_each = local.lambdas
 
-  name            = "${var.project_name}-${each.key}-lmb"
-  description     = each.value.repo_description
-  visibility      = each.value.visibility
-  aws_region      = data.aws_region.current.name
-  github_token    = var.github_token
-  deploy_role_arn = data.aws_iam_role.deploy.arn
-  ecr_repo_url    = module.ecr_lambda[each.key].ecr_url
+  name                 = "${var.project_name}-${each.key}-lmb"
+  description          = each.value.repo_description
+  visibility           = each.value.visibility
+  aws_region           = data.aws_region.current.name
+  github_token         = var.github_token
+  deploy_role_arn      = data.aws_iam_role.deploy.arn
+  ecr_repo_url         = module.ecr_lambda[each.key].ecr_url
+  infra_repo_full_name = "${var.github_org}/${var.infra_repo_name}"
+  deploy_service       = each.key
+  deploy_workflow      = "deploy-lambda.yml"
 }

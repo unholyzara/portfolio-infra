@@ -13,6 +13,15 @@ on:
         required: false
         default: false
         type: boolean
+      deploy_to:
+        description: Deploy the published image to this environment; select none to skip
+        required: false
+        default: none
+        type: choice
+        options:
+          - none
+          - beta
+          - prd
 
 jobs:
   test:
@@ -39,6 +48,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     if: ${{ !inputs.tests_only }}
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
 
     permissions:
       id-token: write
@@ -97,3 +108,41 @@ jobs:
         run: |
           echo "Image published:"
           echo "${ECR_REPO_URL}:${IMAGE_TAG}"
+
+  deploy:
+    name: Deploy published image
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ !inputs.tests_only && inputs.deploy_to != 'none' }}
+
+    steps:
+      - name: Dispatch deployment workflow
+        env:
+          INFRA_REPO_TOKEN: ${{ secrets.INFRA_REPO_TOKEN }}
+          INFRA_REPO_FULL_NAME: ${{ secrets.INFRA_REPO_FULL_NAME }}
+          DEPLOY_WORKFLOW: ${{ secrets.DEPLOY_WORKFLOW }}
+          DEPLOY_SERVICE: ${{ secrets.DEPLOY_SERVICE }}
+          TO_ENVIRONMENT: ${{ inputs.deploy_to }}
+          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+        run: |
+          [ -n "${INFRA_REPO_TOKEN}" ] || { echo "Missing INFRA_REPO_TOKEN" >&2; exit 1; }
+          [ -n "${INFRA_REPO_FULL_NAME}" ] || { echo "Missing INFRA_REPO_FULL_NAME" >&2; exit 1; }
+          [ -n "${DEPLOY_WORKFLOW}" ] || { echo "Missing DEPLOY_WORKFLOW" >&2; exit 1; }
+          [ -n "${DEPLOY_SERVICE}" ] || { echo "Missing DEPLOY_SERVICE" >&2; exit 1; }
+          [ -n "${IMAGE_TAG}" ] || { echo "Missing image tag from build" >&2; exit 1; }
+
+          PAYLOAD=$(jq -n \
+            --arg ref "main" \
+            --arg service "${DEPLOY_SERVICE}" \
+            --arg to_environment "${TO_ENVIRONMENT}" \
+            --arg image_tag "${IMAGE_TAG}" \
+            '{ref: $ref, inputs: {service: $service, to_environment: $to_environment, image_tag: $image_tag, dry_run: "false"}}')
+
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${INFRA_REPO_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --header "Content-Type: application/json" \
+            --data "${PAYLOAD}" \
+            "https://api.github.com/repos/${INFRA_REPO_FULL_NAME}/actions/workflows/${DEPLOY_WORKFLOW}/dispatches"

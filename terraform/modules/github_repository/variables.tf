@@ -25,3 +25,15 @@ variable "deploy_role_arn" {
 variable "ecr_repo_url" {
   type = string
 }
+
+variable "infra_repo_full_name" {
+  type = string
+}
+
+variable "deploy_service" {
+  type = string
+}
+
+variable "deploy_workflow" {
+  type = string
+}
