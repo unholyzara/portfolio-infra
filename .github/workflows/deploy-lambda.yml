@@ -1,0 +1,159 @@
+name: Deploy Lambda
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Lambda service name (ECR repo: portfolio-<service>)"
+        type: string
+        required: true
+        default: backup-lmb
+      environment:
+        description: "Target environment"
+        type: choice
+        options: [beta, prd]
+        required: true
+      image_tag:
+        description: "Image tag to deploy (empty = reuse the tag recorded in SSM)"
+        type: string
+        required: false
+      action:
+        description: "Terraform action"
+        type: choice
+        options: [plan, apply]
+        default: plan
+
+concurrency:
+  group: deploy-lambda-${{ inputs.service }}-${{ inputs.environment }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: eu-south-1
+  # Keep aligned with deploy-infrastructure.yml
+  TF_VERSION: "~1.6.0"
+  STACK_DIR: terraform/stacks/lambdas
+  COMMON_VARS: terraform/environments/common.tfvars
+  ENV_VARS_DIR: terraform/environments
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve and validate inputs
+        id: inputs
+        env:
+          INPUT_SERVICE: ${{ inputs.service }}
+          INPUT_ENVIRONMENT: ${{ inputs.environment }}
+          INPUT_IMAGE_TAG: ${{ inputs.image_tag }}
+          INPUT_ACTION: ${{ inputs.action }}
+        run: |
+          [[ "${INPUT_SERVICE}" =~ ^[a-z0-9-]+$ ]] || { echo "Invalid service" >&2; exit 1; }
+          [[ "${INPUT_ENVIRONMENT}" =~ ^(beta|prd)$ ]] || { echo "Invalid environment" >&2; exit 1; }
+          [[ -z "${INPUT_IMAGE_TAG}" || "${INPUT_IMAGE_TAG}" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid image tag" >&2; exit 1; }
+          [[ "${INPUT_ACTION}" =~ ^(plan|apply)$ ]] || { echo "Invalid action" >&2; exit 1; }
+
+          {
+            echo "service=${INPUT_SERVICE}"
+            echo "environment=${INPUT_ENVIRONMENT}"
+            echo "image_tag=${INPUT_IMAGE_TAG}"
+            echo "action=${INPUT_ACTION}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve image tag
+        id: tag
+        env:
+          SERVICE: ${{ steps.inputs.outputs.service }}
+          ENVIRONMENT: ${{ steps.inputs.outputs.environment }}
+          INPUT_IMAGE_TAG: ${{ steps.inputs.outputs.image_tag }}
+        run: |
+          TAG="${INPUT_IMAGE_TAG}"
+          if [ -z "${TAG}" ]; then
+            TAG=$(aws ssm get-parameter \
+              --name "/portfolio/${ENVIRONMENT}/deploy/${SERVICE}" \
+              --query Parameter.Value \
+              --output text 2>/dev/null || true)
+          fi
+          [ -n "${TAG}" ] || { echo "No image_tag provided and none recorded in SSM" >&2; exit 1; }
+          [[ "${TAG}" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid tag recorded in SSM" >&2; exit 1; }
+          echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify image exists in ECR
+        env:
+          SERVICE: ${{ steps.inputs.outputs.service }}
+          IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
+        run: |
+          aws ecr describe-images \
+            --repository-name "portfolio-${SERVICE}" \
+            --image-ids imageTag="${IMAGE_TAG}" \
+            --query "imageDetails[0].imageDigest" \
+            --output text
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform init
+        working-directory: ${{ env.STACK_DIR }}
+        env:
+          SERVICE: ${{ steps.inputs.outputs.service }}
+          ENVIRONMENT: ${{ steps.inputs.outputs.environment }}
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="key=lambdas/${SERVICE}/${ENVIRONMENT}.tfstate" \
+            -backend-config="region=${AWS_REGION}"
+
+      - name: Terraform plan
+        working-directory: ${{ env.STACK_DIR }}
+        env:
+          SERVICE: ${{ steps.inputs.outputs.service }}
+          ENVIRONMENT: ${{ steps.inputs.outputs.environment }}
+          IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
+        run: |
+          ROOT="${GITHUB_WORKSPACE}"
+          VAR_FILES=()
+          for f in "${ROOT}/${COMMON_VARS}" "${ROOT}/${ENV_VARS_DIR}/${ENVIRONMENT}.tfvars"; do
+            [ -f "$f" ] && VAR_FILES+=("-var-file=$f")
+          done
+
+          terraform plan -input=false -out=tfplan \
+            "${VAR_FILES[@]}" \
+            -var "environment=${ENVIRONMENT}" \
+            -var "service=${SERVICE}" \
+            -var "image_tag=${IMAGE_TAG}"
+
+      - name: Terraform apply
+        if: steps.inputs.outputs.action == 'apply'
+        working-directory: ${{ env.STACK_DIR }}
+        run: terraform apply -input=false tfplan
+
+      - name: Summary
+        env:
+          SERVICE: ${{ steps.inputs.outputs.service }}
+          ENVIRONMENT: ${{ steps.inputs.outputs.environment }}
+          IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
+          ACTION: ${{ steps.inputs.outputs.action }}
+        run: |
+          {
+            echo "### Deploy Lambda"
+            echo "- service: \`${SERVICE}\`"
+            echo "- environment: \`${ENVIRONMENT}\`"
+            echo "- image tag: \`${IMAGE_TAG}\`"
+            echo "- action: \`${ACTION}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

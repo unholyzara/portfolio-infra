@@ -102,24 +102,6 @@ services:
       kind: database
       stack: PostgreSQL 16
 
-  backup:
-    build: ./extra_services/backup
-    profiles: [ backup ]
-    restart: unless-stopped
-    depends_on:
-      - postgres
-    env_file:
-      - ./env/backup/prd.env
-    environment:
-      PGPASSWORD: ${API_DB_PASSWORD}
-    x-repository-info:
-      deployable: false
-    x-subdomain: null
-    x-diagram:
-      kind: job
-      stack: Backup su S3
-      calls: [ postgres ]
-
   grafana:
     image: grafana/grafana:latest
     restart: unless-stopped
@@ -150,18 +132,17 @@ x-lambdas:
     profiles: [ backup ]
     env_file:
       - ./env/backup/prd.env
-    environment:
-      PGPASSWORD: ${API_DB_PASSWORD}
     x-repository-info:
       type: lambda
       repo_description: "Portfolio Backup lambda"
-      deployable: true
       visibility: public
-    x-subdomain: null
     x-diagram:
       kind: lambda
       stack: Backup su S3
       calls: [ postgres ]
+    x-secret: true
+    x-backup: true
+    x-schedule: 0 0 * * ? *
 
 x-platform:
   nodes:

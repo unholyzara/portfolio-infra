@@ -26,12 +26,6 @@ variable "domain_ready" {
   default     = false
 }
 
-variable "deploy_ready" {
-  description = "Set to true to create EC2, VPC, EIP and Lambda autodestroy. When false only ECR and GitHub repos are created."
-  type        = bool
-  default     = false
-}
-
 variable "subdomain" {
   description = "Subdomain prefix for the environment (e.g. beta). Null for prd."
   type        = string
@@ -53,17 +47,6 @@ variable "github_token" {
   type        = string
   sensitive   = true
   default     = ""
-}
-
-variable "backup_bucket_name" {
-  description = "Name of the S3 bucket that stores database backups"
-  type        = string
-}
-
-variable "create_backup_bucket" {
-  description = "Whether this environment owns the backup bucket"
-  type        = bool
-  default     = false
 }
 
 variable "infra_repo_name" {

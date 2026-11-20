@@ -31,6 +31,14 @@ cd $APP_DIR
 git clone https://github.com/${github_org}/${github_repository}.git .
 chown -R deploy:deploy $APP_DIR
 
+get_tag() {
+  aws ssm get-parameter \
+    --region ${aws_region} \
+    --name "/${project_name}/${environment}/deploy/$1" \
+    --query Parameter.Value \
+    --output text || echo "main-latest"
+}
+
 cat > $COMPOSE_DIR/.env << ENVFILE
 ENVIRONMENT=${environment}
 AWS_REGION=${aws_region}

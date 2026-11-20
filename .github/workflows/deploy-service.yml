@@ -29,59 +29,89 @@ jobs:
     permissions:
       id-token: write
       contents: read
-
     steps:
       - name: Checkout portfolio-infra
         uses: actions/checkout@v4
 
-      - name: Checkout portfolio-infra
-        uses: actions/checkout@v4
-        with:
-          repository: unholyzara/portfolio-infra
-          path: infra
-
       - name: Resolve inputs
         id: inputs
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_SERVICE: ${{ github.event.client_payload.service }}
+          DISPATCH_ENVIRONMENT: ${{ github.event.client_payload.environment }}
+          DISPATCH_IMAGE_TAG: ${{ github.event.client_payload.image_tag }}
+          DISPATCH_RUN_MIGRATIONS: ${{ github.event.client_payload.run_migrations }}
+          INPUT_SERVICE: ${{ inputs.service }}
+          INPUT_ENVIRONMENT: ${{ inputs.environment }}
+          INPUT_IMAGE_TAG: ${{ inputs.image_tag }}
+          INPUT_RUN_MIGRATIONS: ${{ inputs.run_migrations }}
         run: |
-          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            echo "service=${{ github.event.client_payload.service }}"                 >> $GITHUB_OUTPUT
-            echo "environment=${{ github.event.client_payload.environment }}"         >> $GITHUB_OUTPUT
-            echo "image_tag=${{ github.event.client_payload.image_tag }}"             >> $GITHUB_OUTPUT
-            echo "run_migrations=${{ github.event.client_payload.run_migrations }}"   >> $GITHUB_OUTPUT
+          if [ "${EVENT_NAME}" = "repository_dispatch" ]; then
+            SERVICE="${DISPATCH_SERVICE}"
+            ENVIRONMENT="${DISPATCH_ENVIRONMENT}"
+            IMAGE_TAG="${DISPATCH_IMAGE_TAG}"
+            RUN_MIGRATIONS="${DISPATCH_RUN_MIGRATIONS}"
           else
-            echo "service=${{ inputs.service }}"               >> $GITHUB_OUTPUT
-            echo "environment=${{ inputs.environment }}"       >> $GITHUB_OUTPUT
-            echo "image_tag=${{ inputs.image_tag }}"           >> $GITHUB_OUTPUT
-            echo "run_migrations=${{ inputs.run_migrations }}" >> $GITHUB_OUTPUT
+            SERVICE="${INPUT_SERVICE}"
+            ENVIRONMENT="${INPUT_ENVIRONMENT}"
+            IMAGE_TAG="${INPUT_IMAGE_TAG}"
+            RUN_MIGRATIONS="${INPUT_RUN_MIGRATIONS}"
           fi
+
+          [[ "${SERVICE}" =~ ^[a-z0-9-]+$ ]] || { echo "Invalid service" >&2; exit 1; }
+          [[ "${ENVIRONMENT}" =~ ^(beta|prd)$ ]] || { echo "Invalid environment" >&2; exit 1; }
+          [[ "${IMAGE_TAG}" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid image tag" >&2; exit 1; }
+
+          {
+            echo "service=${SERVICE}"
+            echo "environment=${ENVIRONMENT}"
+            echo "image_tag=${IMAGE_TAG}"
+            echo "run_migrations=${RUN_MIGRATIONS}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ secrets.ECR_REPO_URL }}
+          aws-region: eu-south-1
+
+      - name: Verify image exists in ECR
+        env:
+          SERVICE: ${{ steps.inputs.outputs.service }}
+          IMAGE_TAG: ${{ steps.inputs.outputs.image_tag }}
+        run: |
+          aws ecr describe-images \
+            --repository-name "portfolio-${SERVICE}" \
+            --image-ids imageTag="${IMAGE_TAG}" \
+            --query "imageDetails[0].imageDigest" \
+            --output text
 
       - name: Get EC2 instance ID
         id: ec2
+        env:
+          ENVIRONMENT: ${{ steps.inputs.outputs.environment }}
         run: |
           INSTANCE_ID=$(aws ec2 describe-instances \
             --filters \
-              "Name=tag:Name,Values=portfolio-${{ steps.inputs.outputs.environment }}" \
+              "Name=tag:Name,Values=portfolio-${ENVIRONMENT}" \
               "Name=instance-state-name,Values=running" \
             --query "Reservations[0].Instances[0].InstanceId" \
             --output text)
-          echo "instance_id=${INSTANCE_ID}" >> $GITHUB_OUTPUT
+          [ "${INSTANCE_ID}" = "None" ] && INSTANCE_ID=""
+          echo "instance_id=${INSTANCE_ID}" >> "$GITHUB_OUTPUT"
 
       - name: Inject secrets and deploy via SSM
+        if: steps.ec2.outputs.instance_id != ''
+        env:
+          SERVICE: ${{ steps.inputs.outputs.service }}
+          IMAGE_TAG: ${{ steps.inputs.outputs.image_tag }}
+          ENVIRONMENT: ${{ steps.inputs.outputs.environment }}
+          RUN_MIGRATIONS: ${{ steps.inputs.outputs.run_migrations }}
+          INSTANCE_ID: ${{ steps.ec2.outputs.instance_id }}
         run: |
-          SERVICE="${{ steps.inputs.outputs.service }}"
-          IMAGE_TAG="${{ steps.inputs.outputs.image_tag }}"
-          ENVIRONMENT="${{ steps.inputs.outputs.environment }}"
-          RUN_MIGRATIONS="${{ steps.inputs.outputs.run_migrations }}"
           ENV_VAR=$(echo "${SERVICE^^}_TAG" | tr '-' '_')
           SECRETS_FILE="./orchestration/services/${SERVICE}/secrets/${ENVIRONMENT}.yml"
 
-          # Build inject commands from secrets yml if it exists
           INJECT_COMMANDS=""
           if [ -f "${SECRETS_FILE}" ]; then
             while IFS=': ' read -r env_var ssm_path; do
@@ -92,7 +122,7 @@ jobs:
 
           COMMANDS="[
             'cd /home/deploy/app/orchestration',
-            'sed -i \"s|^${ENV_VAR}=.*|${ENV_VAR}=${IMAGE_TAG}|\" .env'
+            'grep -q \"^${ENV_VAR}=\" .env && sed -i \"s|^${ENV_VAR}=.*|${ENV_VAR}=${IMAGE_TAG}|\" .env || echo \"${ENV_VAR}=${IMAGE_TAG}\" >> .env'
             ${INJECT_COMMANDS},
             'docker compose pull ${SERVICE}'"
 
@@ -102,9 +132,48 @@ jobs:
 
           COMMANDS="${COMMANDS},'docker compose up -d ${SERVICE}']"
 
-          aws ssm send-command \
-            --instance-ids "${{ steps.ec2.outputs.instance_id }}" \
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${INSTANCE_ID}" \
             --document-name "AWS-RunShellScript" \
             --parameters commands="${COMMANDS}" \
             --comment "Deploy ${SERVICE}:${IMAGE_TAG} to ${ENVIRONMENT}" \
-            --output text
+            --query "Command.CommandId" \
+            --output text)
+
+          STATUS="Pending"
+          for _ in $(seq 1 180); do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "${COMMAND_ID}" \
+              --instance-id "${INSTANCE_ID}" \
+              --query "Status" \
+              --output text 2>/dev/null || echo "Pending")
+            case "${STATUS}" in
+              Success) break ;;
+              Failed|Cancelled|TimedOut)
+                aws ssm get-command-invocation \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "${INSTANCE_ID}" \
+                  --query "[StandardOutputContent,StandardErrorContent]" \
+                  --output text
+                exit 1
+                ;;
+            esac
+            sleep 5
+          done
+          [ "${STATUS}" = "Success" ] || { echo "Timed out waiting for command" >&2; exit 1; }
+
+      - name: No running instance
+        if: steps.ec2.outputs.instance_id == ''
+        run: echo "::warning::No running EC2 found. The tag is recorded in SSM and applied on the next instance creation; a stopped instance keeps its old .env until the next deploy."
+
+      - name: Record deployed tag in SSM
+        env:
+          SERVICE: ${{ steps.inputs.outputs.service }}
+          IMAGE_TAG: ${{ steps.inputs.outputs.image_tag }}
+          ENVIRONMENT: ${{ steps.inputs.outputs.environment }}
+        run: |
+          aws ssm put-parameter \
+            --name "/portfolio/${ENVIRONMENT}/deploy/${SERVICE}" \
+            --type String \
+            --value "${IMAGE_TAG}" \
+            --overwrite

@@ -1,5 +1,4 @@
 module "vpc" {
-  count  = var.deploy_ready ? 1 : 0
   source = "../../modules/vpc"
 
   environment  = var.environment

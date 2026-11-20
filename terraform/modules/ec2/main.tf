@@ -96,6 +96,10 @@ resource "aws_spot_instance_request" "main" {
     delete_on_termination = true
   }
 
+  lifecycle {
+    ignore_changes = [ami]
+  }
+
   user_data = base64encode(templatefile("${path.module}/user_data.sh", {
     environment       = var.environment
     aws_region        = var.aws_region

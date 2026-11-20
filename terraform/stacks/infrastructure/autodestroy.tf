@@ -1,5 +1,5 @@
 module "lambda_autodestroy" {
-  count  = var.deploy_ready && var.autodestroy ? 1 : 0
+  count  = var.autodestroy ? 1 : 0
   source = "../../modules/autodestroy"
 
   project_name                 = var.project_name
