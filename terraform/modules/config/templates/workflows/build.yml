@@ -3,11 +3,6 @@ name: Build and publish
 on:
   workflow_dispatch:
     inputs:
-      branch:
-        description: Branch or tag to build
-        required: true
-        default: main
-        type: string
       tests_only:
         description: Run the test suite only; do not build or publish an image
         required: false
@@ -31,8 +26,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.branch }}
 
       - name: Run service tests
         run: |
@@ -58,8 +51,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.branch }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -74,7 +65,7 @@ jobs:
       - name: Set image metadata
         id: meta
         env:
-          BRANCH: ${{ inputs.branch }}
+          BRANCH: ${{ github.ref_name }}
         run: |
           BRANCH_TAG=$(echo "${BRANCH}" \
             | tr '[:upper:]' '[:lower:]' \
