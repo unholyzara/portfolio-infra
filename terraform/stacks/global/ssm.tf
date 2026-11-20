@@ -13,3 +13,33 @@ resource "aws_ssm_parameter" "secret_parameter" {
     ignore_changes = [value]
   }
 }
+
+moved {
+  from = module.secret_parameter["beta-secret-key"].aws_ssm_parameter.parameter
+  to   = aws_ssm_parameter.secret_parameter["beta-secret-key"]
+}
+
+moved {
+  from = module.secret_parameter["beta-db-password"].aws_ssm_parameter.parameter
+  to   = aws_ssm_parameter.secret_parameter["beta-db-password"]
+}
+
+moved {
+  from = module.secret_parameter["beta-root-password"].aws_ssm_parameter.parameter
+  to   = aws_ssm_parameter.secret_parameter["beta-root-password"]
+}
+
+moved {
+  from = module.secret_parameter["prd-secret-key"].aws_ssm_parameter.parameter
+  to   = aws_ssm_parameter.secret_parameter["prd-secret-key"]
+}
+
+moved {
+  from = module.secret_parameter["prd-db-password"].aws_ssm_parameter.parameter
+  to   = aws_ssm_parameter.secret_parameter["prd-db-password"]
+}
+
+moved {
+  from = module.secret_parameter["prd-root-password"].aws_ssm_parameter.parameter
+  to   = aws_ssm_parameter.secret_parameter["prd-root-password"]
+}
