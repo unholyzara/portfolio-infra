@@ -6,6 +6,7 @@ services:
   nginx:
     image: nginx:alpine
     restart: unless-stopped
+    mem_limit: ${NGINX_MEM_LIMIT:-64m}
     ports:
       - "80:80"
       - "443:443"
@@ -17,7 +18,6 @@ services:
       - frontend
       - api
       - admin
-      - grafana
     x-repository-info:
       deployable: false
     x-subdomain: null
@@ -28,6 +28,7 @@ services:
   frontend:
     image: ${ECR_REGISTRY}/portfolio-frontend:${FRONTEND_TAG}
     restart: unless-stopped
+    mem_limit: ${FRONTEND_MEM_LIMIT:-32m}
     depends_on:
       - api
     x-repository-info:
@@ -45,6 +46,7 @@ services:
   admin:
     image: ${ECR_REGISTRY}/portfolio-admin:${ADMIN_TAG}
     restart: unless-stopped
+    mem_limit: ${ADMIN_MEM_LIMIT:-32m}
     env_file:
       - ./services/admin/${ENVIRONMENT}.env
     depends_on:
@@ -64,6 +66,9 @@ services:
   api:
     image: ${ECR_REGISTRY}/portfolio-api:${API_TAG}
     restart: unless-stopped
+    mem_limit: ${API_MEM_LIMIT:-256m}
+    environment:
+      WEB_CONCURRENCY: ${API_WORKERS:-1}
     env_file:
       - ./services/api/${ENVIRONMENT}.env
     depends_on:
@@ -84,6 +89,8 @@ services:
   postgres:
     image: postgres:16
     restart: unless-stopped
+    mem_limit: ${POSTGRES_MEM_LIMIT:-192m}
+    command: [ "postgres", "-c", "shared_buffers=${PG_SHARED_BUFFERS:-48MB}", "-c", "max_connections=30" ]
     environment:
       - POSTGRES_PASSWORD=${POSTGRES_ROOT_PASSWORD}
       - API_DB_PASSWORD=${API_DB_PASSWORD}
@@ -105,6 +112,7 @@ services:
   grafana:
     image: grafana/grafana:latest
     restart: unless-stopped
+    mem_limit: ${GRAFANA_MEM_LIMIT:-192m}
     profiles:
       - monitoring
     environment:

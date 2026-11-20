@@ -7,6 +7,31 @@ COMPOSE_DIR=$APP_DIR/orchestration
 dnf update -y
 dnf install -y docker git jq cronie
 
+# Swap: un picco di memoria diventa un rallentamento, non un OOM kill
+%{ if environment == "prd" ~}
+SWAP_SIZE_MB=2048
+%{ else ~}
+SWAP_SIZE_MB=1024
+%{ endif ~}
+if [ ! -f /swapfile ]; then
+  dd if=/dev/zero of=/swapfile bs=1M count=$SWAP_SIZE_MB status=none
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo "/swapfile none swap sw 0 0" >> /etc/fstab
+fi
+echo "vm.swappiness=10" > /etc/sysctl.d/99-swappiness.conf
+sysctl --system > /dev/null
+
+# Rotazione log dei container
+mkdir -p /etc/docker
+cat > /etc/docker/daemon.json << 'DAEMONJSON'
+{
+  "log-driver": "json-file",
+  "log-opts": { "max-size": "10m", "max-file": "3" }
+}
+DAEMONJSON
+
 systemctl enable docker
 systemctl start docker
 systemctl enable --now crond
@@ -48,6 +73,15 @@ ADMIN_TAG=main-latest
 API_TAG=main-latest
 CV_TAG=main-latest
 ENVFILE
+
+%{ if environment == "prd" ~}
+cat >> $COMPOSE_DIR/.env << PRDENV
+API_MEM_LIMIT=384m
+API_WORKERS=2
+POSTGRES_MEM_LIMIT=512m
+PG_SHARED_BUFFERS=128MB
+PRDENV
+%{ endif ~}
 
 POSTGRES_ROOT_PASSWORD=$(aws ssm get-parameter \
   --region ${aws_region} \
