@@ -75,17 +75,3 @@ volumes:
   postgres-data:
   grafana-data:
   certbot-certs:
-
-x-lambdas:
-  backup:
-    profiles: [ backup ]
-    x-repository-info:
-      type: lambda
-      repo_description: "Portfolio Backup lambda"
-      visibility: public
-    x-diagram:
-      kind: lambda
-      stack: Backup su S3
-      calls: [ postgres ]
-    x-backup: true
-    x-schedule: 0 0 * * ? *
