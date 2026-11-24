@@ -39,9 +39,8 @@ services:
   postgres:
     image: postgres:16
     restart: unless-stopped
-    environment:
-      - POSTGRES_PASSWORD=${POSTGRES_ROOT_PASSWORD}
-      - API_DB_PASSWORD=${API_DB_PASSWORD}
+    env_file:
+      - ../services/postgres/envs/${ENVIRONMENT}.env
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
