@@ -61,13 +61,27 @@ jobs:
       - name: Terraform plan
         run: |
           terraform plan -out=tfplan \
-            -var-file=../vars/common.tfvars \
-            -var-file=../vars/${ENVIRONMENT}.tfvars \
             -var-file="vars/common.tfvars" \
             -var-file="vars/${ENVIRONMENT}.tfvars"
 
+      - name: Terraform init SSM
+        working-directory: terraform/stacks/ssm
+        run: terraform init -backend-config="key=ssm/${ENVIRONMENT}/terraform.tfstate"
+
+      - name: Terraform plan SSM
+        working-directory: terraform/stacks/ssm
+        run: |
+          terraform plan -out=tfplan \
+            -var-file="../infrastructure/vars/common.tfvars" \
+            -var-file="../infrastructure/vars/${ENVIRONMENT}.tfvars"
+
       - name: Terraform apply
         if: ${{ !inputs.dry_run }}
+        run: terraform apply tfplan
+
+      - name: Terraform apply SSM
+        if: ${{ !inputs.dry_run }}
+        working-directory: terraform/stacks/ssm
         run: terraform apply tfplan
 
       - name: Verify shared secrets are populated

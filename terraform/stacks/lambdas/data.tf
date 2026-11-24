@@ -18,6 +18,16 @@ data "terraform_remote_state" "infrastructure" {
   }
 }
 
+data "terraform_remote_state" "ssm" {
+  backend = "s3"
+
+  config = {
+    bucket = "portfolio-config-terraform-state"
+    key    = "ssm/${var.environment}/terraform.tfstate"
+    region = "eu-south-1"
+  }
+}
+
 data "aws_region" "current" {}
 
 data "aws_ecr_repository" "this" {
@@ -31,7 +41,7 @@ data "aws_s3_bucket" "backup" {
 data "aws_ssm_parameter" "this" {
   for_each = local.shared_secrets
 
-  name = data.terraform_remote_state.infrastructure.outputs.shared_secret_ssm[each.key].name
+  name = data.terraform_remote_state.ssm.outputs.shared_secret_ssm[each.key].name
 }
 
 data "aws_vpc" "this" {
