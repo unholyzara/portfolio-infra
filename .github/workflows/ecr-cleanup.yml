@@ -45,4 +45,4 @@ jobs:
         env:
           ECR_CLEANUP_REPOSITORIES: ${{ vars.ECR_CLEANUP_REPOSITORIES }}
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
-        run: python3 orchestration/scripts/helpers/cleanup-ecr.py
+        run: python3 orchestration/scripts/helpers/ecr-cleanup/cleanup-ecr.py
