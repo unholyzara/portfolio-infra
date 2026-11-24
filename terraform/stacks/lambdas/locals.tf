@@ -9,7 +9,6 @@ locals {
   lambda_env      = local.lambda_customs == null ? local.lambda_env_map : merge(local.lambda_env_map, local.lambda_customs.env)
 
   docker_compose_file = yamldecode(file("${local.orchestration_dir}/docker-compose.yml"))
-  lambda_data         = local.docker_compose_file["x-lambdas"][var.service]
   shared_secrets      = local.docker_compose_file["x-shared-secrets"]
 
   lambda_secrets_file = yamldecode(file("${local.orchestration_dir}/services/${var.service}/secrets.yml"))

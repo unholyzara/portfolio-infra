@@ -1,21 +1,26 @@
 locals {
-  docker_compose_file = yamldecode(file("${path.module}/../../../orchestration/docker-compose.yml"))
-  services_data       = local.docker_compose_file["services"]
-  lambdas_data        = local.docker_compose_file["x-lambdas"]
+  services_dir         = "${path.module}/../../../orchestration/services"
+  service_config_files = fileset(local.services_dir, "*/config.yml")
+  services_data = {
+    for config_file in local.service_config_files :
+    split("/", config_file)[0] => yamldecode(file("${local.services_dir}/${config_file}"))
+  }
 
   services = {
     for name, service in local.services_data :
     name => merge(
       { name = name },
-      service["x-repository-info"]
+      service["repository-info"]
     )
-    if try(service["x-repository-info"].deployable, false)
+    if service["repository-info"].deployable && !try(service["lambda"], false)
   }
+
   lambdas = {
-    for name, lambda in local.lambdas_data :
+    for name, lambda in local.services_data :
     name => merge(
       { name = lambda },
-      lambda["x-repository-info"]
+      lambda["repository-info"]
     )
+    if try(lambda["lambda"], false)
   }
 }

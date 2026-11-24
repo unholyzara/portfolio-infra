@@ -1,0 +1,11 @@
+repository-info:
+  type: admin
+  repo_description: "Portfolio admin — React backoffice"
+  deployable: true
+  visibility: public
+subdomain: admin
+diagram:
+  kind: frontend
+  stack: React
+  public: [ admin.DOMINIO ]
+  uses: [ ECR ]

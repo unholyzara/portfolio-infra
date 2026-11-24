@@ -52,12 +52,6 @@ services:
       - frontend
       - api
       - admin
-    x-repository-info:
-      deployable: false
-    x-subdomain: null
-    x-diagram:
-      kind: platform
-      stack: reverse proxy
 
   frontend:
     image: ${ECR_REGISTRY}/portfolio-frontend:${FRONTEND_TAG}
@@ -67,17 +61,6 @@ services:
       - ./services/frontend/${ENVIRONMENT}.env
     depends_on:
       - api
-    x-repository-info:
-      type: frontend
-      repo_description: "Portfolio frontend — Angular"
-      deployable: true
-      visibility: public
-    x-subdomain: null
-    x-diagram:
-      kind: frontend
-      stack: Angular
-      public: [ DOMINIO ]
-      uses: [ ECR ]
 
   admin:
     image: ${ECR_REGISTRY}/portfolio-admin:${ADMIN_TAG}
@@ -87,17 +70,6 @@ services:
       - ./services/admin/${ENVIRONMENT}.env
     depends_on:
       - api
-    x-repository-info:
-      type: admin
-      repo_description: "Portfolio admin — React backoffice"
-      deployable: true
-      visibility: public
-    x-subdomain: admin
-    x-diagram:
-      kind: frontend
-      stack: React
-      public: [ admin.DOMINIO ]
-      uses: [ ECR ]
 
   api:
     image: ${ECR_REGISTRY}/portfolio-api:${API_TAG}
@@ -109,27 +81,6 @@ services:
       WEB_CONCURRENCY: ${API_WORKERS:-1}
     depends_on:
       - postgres
-    x-repository-info:
-      type: backend
-      repo_description: "Portfolio API service — Django"
-      deployable: true
-      visibility: public
-    x-subdomain: null
-    x-shared-secrets:
-      secret-key:
-        env-var: SECRET_KEY
-      api-db-user:
-        env-var: DB_USER
-      api-db-password:
-        env-var: DB_PASSWORD
-      db-name:
-        env-var: DB_NAME
-    x-diagram:
-      kind: backend
-      stack: Django + DRF
-      public: [ DOMINIO/api, admin.DOMINIO/api ]
-      calls: [ postgres ]
-      uses: [ ECR, SSM ]
 
   postgres:
     image: postgres:16
@@ -144,12 +95,6 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
-    x-repository-info:
-      deployable: false
-    x-subdomain: null
-    x-diagram:
-      kind: database
-      stack: PostgreSQL 16
 
   grafana:
     image: grafana/grafana:latest
@@ -162,13 +107,6 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
-    x-repository-info:
-      deployable: false
-    x-subdomain: grafana
-    x-diagram:
-      kind: monitoring
-      stack: Grafana
-      public: [ grafana.DOMINIO ]
 
 volumes:
   postgres-data:

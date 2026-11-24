@@ -1,0 +1,6 @@
+repository-info:
+  deployable: false
+subdomain: null
+diagram:
+  kind: platform
+  stack: reverse proxy

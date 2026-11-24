@@ -35,6 +35,12 @@ def resolve_domain(values, domain):
     return result
 
 
+def load_service_config(compose_path, service_id):
+    config_path = Path(compose_path).parent / "services" / service_id / "config.yml"
+    with config_path.open(encoding="utf-8") as file:
+        return yaml.safe_load(file) or {}
+
+
 def parse_compose(compose_path, domain=None):
     with open(compose_path, encoding="utf-8") as file:
         compose = yaml.safe_load(file)
@@ -46,8 +52,9 @@ def parse_compose(compose_path, domain=None):
 
     # Docker Compose services
     for service_id, service in services.items():
-        diagram = service.get("x-diagram", {})
-        repository = service.get("x-repository-info", {})
+        config = load_service_config(compose_path, service_id)
+        diagram = config.get("diagram") or {}
+        repository = config.get("repository-info") or {}
 
         nodes.append({
             "id": service_id,
@@ -61,7 +68,7 @@ def parse_compose(compose_path, domain=None):
             ),
             "uses": normalize_list(diagram.get("uses")),
             "metadata": {
-                "subdomain": service.get("x-subdomain"),
+                "subdomain": config.get("subdomain"),
                 "repository": repository
             }
         })

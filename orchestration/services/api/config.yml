@@ -1,0 +1,21 @@
+repository-info:
+  type: backend
+  repo_description: "Portfolio API service — Django"
+  deployable: true
+  visibility: public
+subdomain: null
+shared-secrets:
+  secret-key:
+    env-var: SECRET_KEY
+  api-db-user:
+    env-var: DB_USER
+  api-db-password:
+    env-var: DB_PASSWORD
+  db-name:
+    env-var: DB_NAME
+diagram:
+  kind: backend
+  stack: Django + DRF
+  public: [ DOMINIO/api, admin.DOMINIO/api ]
+  calls: [ postgres ]
+  uses: [ ECR, SSM ]

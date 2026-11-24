@@ -43,7 +43,14 @@ if env_values.get("ENVIRONMENT") != environment:
 with (compose_dir / "docker-compose.yml").open(encoding="utf-8") as source:
     compose = yaml.safe_load(source)
 service = compose.get("services", {}).get(service_name)
-if not service or service.get("x-repository-info", {}).get("deployable") is not True:
+config_file = compose_dir / "services" / service_name / "config.yml"
+try:
+    with config_file.open(encoding="utf-8") as source:
+        service_config = yaml.safe_load(source) or {}
+except FileNotFoundError:
+    service_config = {}
+repository_info = service_config.get("repository-info")
+if not service or repository_info.get("deployable") is not True:
     fail(f"Unknown or non-deployable service: {service_name}")
 if not str(service.get("image", "")).startswith("${ECR_REGISTRY}/"):
     fail(f"Service {service_name} does not use a custom ECR image")

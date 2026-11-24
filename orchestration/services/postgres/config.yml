@@ -1,0 +1,6 @@
+repository-info:
+  deployable: false
+subdomain: null
+diagram:
+  kind: database
+  stack: PostgreSQL 16

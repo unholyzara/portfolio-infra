@@ -1,0 +1,11 @@
+lambda: true
+repository-info:
+  type: lambda
+  repo_description: "Portfolio Backup lambda"
+  visibility: public
+diagram:
+  kind: lambda
+  stack: Backup su S3
+  calls: [ postgres ]
+backup: true
+schedule: 0 0 * * ? *

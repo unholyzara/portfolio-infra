@@ -103,17 +103,18 @@ jobs:
           SERVICES=$(SERVICE_INPUT="${SERVICE}" python3 - <<'PY'
           import json
           import os
+          from pathlib import Path
           import sys
 
           import yaml
 
-          with open("orchestration/docker-compose.yml", encoding="utf-8") as compose_file:
-              compose = yaml.safe_load(compose_file)
-          available = [
-              name
-              for name, config in compose["services"].items()
-              if config.get("x-repository-info", {}).get("deployable") is True
-          ]
+          available = []
+          for config_file in sorted(Path("orchestration/services").glob("*/config.yml")):
+              with config_file.open(encoding="utf-8") as source:
+                  config = yaml.safe_load(source) or {}
+              repository_info = config.get("repository-info", {})
+              if repository_info.get("deployable") is True:
+                  available.append(config_file.parent.name)
           service_input = os.environ["SERVICE_INPUT"]
           selected = available if not service_input else [name.strip() for name in service_input.split(",")]
           if any(not name for name in selected):

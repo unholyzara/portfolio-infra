@@ -7,5 +7,5 @@ module "backup" {
   project_name       = var.project_name
   role_id            = module.ec2.ec2_role_id
   backup_lambda_name = each.key
-  schedule           = each.value["x-schedule"]
+  schedule           = each.value["schedule"]
 }

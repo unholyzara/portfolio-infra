@@ -1,0 +1,11 @@
+repository-info:
+  type: frontend
+  repo_description: "Portfolio frontend — Angular"
+  deployable: true
+  visibility: public
+subdomain: null
+diagram:
+  kind: frontend
+  stack: Angular
+  public: [ DOMINIO ]
+  uses: [ ECR ]
