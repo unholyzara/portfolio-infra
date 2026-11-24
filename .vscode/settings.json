@@ -1,0 +1,13 @@
+{
+  "containers.commands.composeUp": [
+    {
+      "label": "Start local services",
+      "template": "${composeCommand} --env-file \"${workspaceFolder}/orchestration/local.env\" ${configurationFile} up ${detached} ${build}",
+      "match": "docker-compose\\.local\\.yml$"
+    },
+    {
+      "label": "Start services",
+      "template": "${composeCommand} ${configurationFile} up ${detached} ${build}"
+    }
+  ]
+}
