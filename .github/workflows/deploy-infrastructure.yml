@@ -9,10 +9,6 @@ on:
         options: [beta, prd]
         default: beta
         required: true
-      dry_run:
-        description: "Dry run"
-        type: boolean
-        default: true
       deploy_orchestration:
         description: "Deploy orchestration"
         type: boolean
@@ -22,26 +18,24 @@ concurrency:
   group: terraform-${{ inputs.environment }}
   cancel-in-progress: false
 
-jobs:
-  terraform:
-    name: Terraform ${{ inputs.dry_run && 'plan' || 'apply' }} ${{ inputs.environment }}
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-      actions: write
+permissions:
+  contents: read
+  id-token: write
 
+env:
+  ENVIRONMENT: ${{ inputs.environment }}
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  TF_VAR_github_token: ${{ secrets.GH_ADMIN_TOKEN }}
+
+jobs:
+  plan-infrastructure:
+    name: Plan infrastructure (${{ inputs.environment }})
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: terraform/stacks/infrastructure
-
-    env:
-      ENVIRONMENT: ${{ inputs.environment }}
-      AWS_REGION: ${{ vars.AWS_REGION }}
-      TF_IN_AUTOMATION: "true"
-      TF_INPUT: "false"
-      TF_VAR_github_token: ${{ secrets.GH_ADMIN_TOKEN }}
-
     steps:
       - uses: actions/checkout@v4
 
@@ -64,30 +58,99 @@ jobs:
             -var-file="vars/common.tfvars" \
             -var-file="vars/${ENVIRONMENT}.tfvars"
 
-      - name: Terraform init SSM
+      - name: Upload infrastructure plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: infrastructure-plan-${{ inputs.environment }}
+          path: terraform/stacks/infrastructure/tfplan
+          if-no-files-found: error
+          retention-days: 1
+
+  plan-ssm:
+    name: Plan SSM (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
         working-directory: terraform/stacks/ssm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_BOOTSTRAP_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+
+      - name: Terraform init
         run: terraform init -backend-config="key=ssm/${ENVIRONMENT}/terraform.tfstate"
 
-      - name: Terraform plan SSM
-        working-directory: terraform/stacks/ssm
+      - name: Terraform plan
         run: |
           terraform plan -out=tfplan \
             -var-file="../infrastructure/vars/common.tfvars" \
             -var-file="../infrastructure/vars/${ENVIRONMENT}.tfvars"
 
-      - name: Terraform apply
-        if: ${{ !inputs.dry_run }}
-        run: terraform apply tfplan
+      - name: Upload SSM plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: ssm-plan-${{ inputs.environment }}
+          path: terraform/stacks/ssm/tfplan
+          if-no-files-found: error
+          retention-days: 1
 
-      - name: Terraform apply SSM
-        if: ${{ !inputs.dry_run }}
-        working-directory: terraform/stacks/ssm
+  approve-plans:
+    name: Approve Terraform plans
+    needs: [plan-infrastructure, plan-ssm]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: terraform-${{ inputs.environment }}
+    steps:
+      - name: Approval gate
+        run: echo "Terraform plans approved for ${ENVIRONMENT}"
+
+  apply-infrastructure:
+    name: Apply infrastructure (${{ inputs.environment }})
+    needs: [approve-plans]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      actions: write
+    defaults:
+      run:
+        working-directory: terraform/stacks/infrastructure
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_BOOTSTRAP_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+
+      - name: Terraform init
+        run: terraform init -backend-config="key=infrastructure/${ENVIRONMENT}/terraform.tfstate"
+
+      - name: Download infrastructure plan
+        uses: actions/download-artifact@v4
+        with:
+          name: infrastructure-plan-${{ inputs.environment }}
+          path: terraform/stacks/infrastructure
+
+      - name: Terraform apply
         run: terraform apply tfplan
 
       - name: Verify shared secrets are populated
-        if: ${{ !inputs.dry_run && inputs.deploy_orchestration }}
+        if: ${{ inputs.deploy_orchestration }}
         env:
-          ENVIRONMENT: ${{ inputs.environment }}
           AWS_REGION: ${{ env.AWS_REGION }}
         run: |
           while IFS= read -r secret_name; do
@@ -108,10 +171,9 @@ jobs:
           done < <(ruby -ryaml -e 'YAML.load_file("../../config/secrets.yml").each_key { |key| puts key }')
 
       - name: Trigger orchestration deployment
-        if: ${{ !inputs.dry_run && inputs.deploy_orchestration }}
+        if: ${{ inputs.deploy_orchestration }}
         env:
           GH_TOKEN: ${{ github.token }}
-          ENVIRONMENT: ${{ inputs.environment }}
           REF_NAME: ${{ github.ref_name }}
         run: |
           gh api \
@@ -120,3 +182,35 @@ jobs:
             -f "ref=${REF_NAME}" \
             -f "inputs[environment]=${ENVIRONMENT}" \
             -f "inputs[dry_run]=false"
+
+  apply-ssm:
+    name: Apply SSM (${{ inputs.environment }})
+    needs: [approve-plans]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform/stacks/ssm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_BOOTSTRAP_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+
+      - name: Terraform init
+        run: terraform init -backend-config="key=ssm/${ENVIRONMENT}/terraform.tfstate"
+
+      - name: Download SSM plan
+        uses: actions/download-artifact@v4
+        with:
+          name: ssm-plan-${{ inputs.environment }}
+          path: terraform/stacks/ssm
+
+      - name: Terraform apply
+        run: terraform apply tfplan
