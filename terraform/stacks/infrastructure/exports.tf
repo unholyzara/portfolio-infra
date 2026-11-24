@@ -2,12 +2,8 @@ output "backup_bucket_name" {
   value = module.backup["backup"].bucket.name
 }
 
-output "shared_secret_ssm_name" {
-  value = module.shared_secret.name
-}
-
-output "shared_secret_ssm_arn" {
-  value = module.shared_secret.arn
+output "shared_secret_ssm" {
+  value = module.shared_secret
 }
 
 output "vpc_id" {

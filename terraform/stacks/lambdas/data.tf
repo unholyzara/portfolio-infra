@@ -31,7 +31,7 @@ data "aws_s3_bucket" "backup" {
 data "aws_ssm_parameter" "this" {
   for_each = local.shared_secrets
 
-  name = data.terraform_remote_state.infrastructure.outputs.shared_secret_ssm_arn[each.key].name
+  name = data.terraform_remote_state.infrastructure.outputs.shared_secret_ssm[each.key].name
 }
 
 data "aws_vpc" "this" {
