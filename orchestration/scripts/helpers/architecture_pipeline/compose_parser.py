@@ -41,6 +41,12 @@ def load_service_config(compose_path, service_id):
         return yaml.safe_load(file) or {}
 
 
+def load_environments(compose_path):
+    config_path = Path(compose_path).resolve().parent.parent / "terraform" / "config" / "environments.yml"
+    with config_path.open(encoding="utf-8") as file:
+        return yaml.safe_load(file) or []
+
+
 def parse_compose(compose_path, domain=None):
     with open(compose_path, encoding="utf-8") as file:
         compose = yaml.safe_load(file)
@@ -147,7 +153,7 @@ def parse_compose(compose_path, domain=None):
 
     return {
         "project": compose.get("name", ""),
-        "environments": compose.get("x-environments", []),
+        "environments": load_environments(compose_path),
         "nodes": nodes,
         "edges": unique_edges
     }

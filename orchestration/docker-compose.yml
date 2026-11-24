@@ -1,7 +1,4 @@
 name: portfolio
-x-environments:
-  - name: beta
-  - name: prd
 x-shared-secrets:
   secret-key:
     value:
