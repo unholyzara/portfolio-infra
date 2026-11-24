@@ -107,7 +107,7 @@ jobs:
     needs: [plan-infrastructure, plan-ssm]
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: terraform-${{ inputs.environment }}
+    environment: ${{ inputs.environment }}
     steps:
       - name: Approval gate
         run: echo "Terraform plans approved for ${ENVIRONMENT}"
