@@ -18,8 +18,8 @@ locals {
     if try(service["subdomain"], null) != null
   }
 
-  docker_compose_file = yamldecode(file("${path.module}/../../../orchestration/docker-compose.yml"))
-  ssm_parameters      = local.docker_compose_file["x-shared-secrets"]
+  shared_secrets_file = yamldecode(file("${path.module}/../../config/secrets.yml"))
+  ssm_parameters      = local.shared_secrets_file
 
   backup_lambdas = {
     for name, lmb in local.services_data :

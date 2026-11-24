@@ -8,8 +8,8 @@ locals {
   lambda_customs  = try(local.customs[var.service], null)
   lambda_env      = local.lambda_customs == null ? local.lambda_env_map : merge(local.lambda_env_map, local.lambda_customs.env)
 
-  docker_compose_file = yamldecode(file("${local.orchestration_dir}/docker-compose.yml"))
-  shared_secrets      = local.docker_compose_file["x-shared-secrets"]
+  shared_secrets_file = yamldecode(file("${path.module}/../../config/secrets.yml"))
+  shared_secrets      = local.shared_secrets_file
 
   lambda_secrets_file = yamldecode(file("${local.orchestration_dir}/services/${var.service}/secrets.yml"))
   ssm_parameters = {
