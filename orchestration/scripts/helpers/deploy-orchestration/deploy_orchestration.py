@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 
 import yaml
-from compose_secrets import load_service_secrets, write_compose_override
+from ..shared.compose_secrets import load_service_secrets, write_compose_override
 
 
 def fail(message):
