@@ -138,7 +138,8 @@ jobs:
             echo "run_migrations=${RUN_MIGRATIONS}"
           } >> "$GITHUB_OUTPUT"
 
-  deploy:
+  plan:
+    name: Plan ${{ matrix.service }} (${{ needs.prepare.outputs.to_environment }})
     needs: prepare
     runs-on: ubuntu-latest
     permissions:
@@ -202,14 +203,134 @@ jobs:
           [ "${INSTANCE_ID}" = "None" ] && INSTANCE_ID=""
           echo "instance_id=${INSTANCE_ID}" >> "$GITHUB_OUTPUT"
 
-      - name: Deploy service via SSM
-        if: steps.ec2.outputs.instance_id != '' && needs.prepare.outputs.dry_run == 'false'
+      - name: Read current image tag
+        id: old-tag
         env:
           SERVICE: ${{ matrix.service }}
+          TO_ENVIRONMENT: ${{ needs.prepare.outputs.to_environment }}
+        run: |
+          OLD_TAG=$(aws ssm get-parameter \
+            --name "/portfolio/${TO_ENVIRONMENT}/deploy/${SERVICE}" \
+            --query Parameter.Value \
+            --output text 2>/dev/null || true)
+          [ "${OLD_TAG}" != "None" ] || OLD_TAG=""
+          echo "image_tag=${OLD_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Save deployment plan
+        env:
+          SERVICE: ${{ matrix.service }}
+          TO_ENVIRONMENT: ${{ needs.prepare.outputs.to_environment }}
           IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
+          OLD_IMAGE_TAG: ${{ steps.old-tag.outputs.image_tag }}
+          INSTANCE_ID: ${{ steps.ec2.outputs.instance_id }}
+        run: |
+          mkdir -p deployment-plan reports
+          python3 - <<'PY'
+          import json
+          import os
+
+          with open("deployment-plan/plan.json", "w", encoding="utf-8") as output:
+              json.dump({
+                  "service": os.environ["SERVICE"],
+                  "environment": os.environ["TO_ENVIRONMENT"],
+                  "image_tag": os.environ["IMAGE_TAG"],
+                  "old_image_tag": os.environ["OLD_IMAGE_TAG"],
+                  "instance_id": os.environ["INSTANCE_ID"],
+              }, output)
+          PY
+          OLD_TAG="${OLD_IMAGE_TAG:-unset}"
+          printf '| %s | `%s` -> `%s` |\n' "${SERVICE}" "${OLD_TAG}" "${IMAGE_TAG}" > "reports/${SERVICE}.md"
+
+      - name: Upload deployment plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-plan-${{ needs.prepare.outputs.to_environment }}-${{ matrix.service }}
+          path: deployment-plan/plan.json
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload image tag report row
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-report-${{ needs.prepare.outputs.to_environment }}-${{ matrix.service }}
+          path: reports/${{ matrix.service }}.md
+          if-no-files-found: error
+          retention-days: 7
+
+  report:
+    name: Service image tag report
+    needs: [prepare, plan]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download image tag report rows
+        uses: actions/download-artifact@v4
+        with:
+          pattern: service-report-${{ needs.prepare.outputs.to_environment }}-*
+          path: report-rows
+          merge-multiple: true
+
+      - name: Build image tag report
+        run: |
+          {
+            echo "# Image tag changes"
+            echo
+            echo "| Service | Image tag |"
+            echo "| --- | --- |"
+            cat report-rows/*.md
+          } > deployment-report.md
+
+      - name: Upload image tag report
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-image-tags-${{ needs.prepare.outputs.to_environment }}
+          path: deployment-report.md
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    name: Deploy ${{ matrix.service }} (${{ needs.prepare.outputs.to_environment }})
+    needs: [prepare, plan]
+    if: needs.prepare.outputs.dry_run == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        service: ${{ fromJson(needs.prepare.outputs.services) }}
+    steps:
+      - name: Download deployment plan
+        uses: actions/download-artifact@v4
+        with:
+          name: service-plan-${{ needs.prepare.outputs.to_environment }}-${{ matrix.service }}
+          path: deployment-plan
+
+      - name: Read deployment plan
+        id: plan
+        run: |
+          echo "service=$(jq -r .service deployment-plan/plan.json)" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$(jq -r .image_tag deployment-plan/plan.json)" >> "$GITHUB_OUTPUT"
+          echo "instance_id=$(jq -r .instance_id deployment-plan/plan.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout portfolio-infra
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-south-1
+
+      - name: Deploy service via SSM
+        if: steps.plan.outputs.instance_id != ''
+        env:
+          SERVICE: ${{ steps.plan.outputs.service }}
+          IMAGE_TAG: ${{ steps.plan.outputs.image_tag }}
           TO_ENVIRONMENT: ${{ needs.prepare.outputs.to_environment }}
           RUN_MIGRATIONS: ${{ needs.prepare.outputs.run_migrations }}
-          INSTANCE_ID: ${{ steps.ec2.outputs.instance_id }}
+          INSTANCE_ID: ${{ steps.plan.outputs.instance_id }}
         run: |
           COMMANDS=$(SERVICE="${SERVICE}" TO_ENVIRONMENT="${TO_ENVIRONMENT}" IMAGE_TAG="${IMAGE_TAG}" RUN_MIGRATIONS="${RUN_MIGRATIONS}" python3 - <<'PY'
           import json
@@ -269,19 +390,13 @@ jobs:
           [ "${STATUS}" = "Success" ] || { echo "Timed out waiting for command" >&2; exit 1; }
 
       - name: No running instance
-        if: steps.ec2.outputs.instance_id == '' && needs.prepare.outputs.dry_run == 'false'
+        if: steps.plan.outputs.instance_id == ''
         run: echo "::warning::No running EC2 found. The tag is recorded in SSM and applied on the next instance creation; a stopped instance keeps its old .env until the next deploy."
 
-      - name: No running instance during dry run
-        if: steps.ec2.outputs.instance_id == '' && needs.prepare.outputs.dry_run == 'true'
-        run: |
-          echo "::notice::Dry run: no running EC2 found; no deployment or SSM update was performed."
-
       - name: Record deployed tag in SSM
-        if: needs.prepare.outputs.dry_run == 'false'
         env:
-          SERVICE: ${{ matrix.service }}
-          IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
+          SERVICE: ${{ steps.plan.outputs.service }}
+          IMAGE_TAG: ${{ steps.plan.outputs.image_tag }}
           TO_ENVIRONMENT: ${{ needs.prepare.outputs.to_environment }}
         run: |
           aws ssm put-parameter \
@@ -292,13 +407,12 @@ jobs:
 
       - name: Summary
         env:
-          SERVICE: ${{ matrix.service }}
+          SERVICE: ${{ steps.plan.outputs.service }}
           TO_ENVIRONMENT: ${{ needs.prepare.outputs.to_environment }}
           FROM_ENVIRONMENT: ${{ needs.prepare.outputs.from_environment }}
-          IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
-          DRY_RUN: ${{ needs.prepare.outputs.dry_run }}
+          IMAGE_TAG: ${{ steps.plan.outputs.image_tag }}
           RUN_MIGRATIONS: ${{ needs.prepare.outputs.run_migrations }}
-          INSTANCE_ID: ${{ steps.ec2.outputs.instance_id }}
+          INSTANCE_ID: ${{ steps.plan.outputs.instance_id }}
         run: |
           {
             echo "### Deploy service"
@@ -308,5 +422,4 @@ jobs:
             echo "- image tag: \`${IMAGE_TAG}\`"
             echo "- instance: \`${INSTANCE_ID:-none}\`"
             echo "- run migrations: \`${RUN_MIGRATIONS}\`"
-            echo "- dry run: \`${DRY_RUN}\`"
           } >> "$GITHUB_STEP_SUMMARY"
