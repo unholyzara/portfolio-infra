@@ -36,7 +36,7 @@ resource "aws_route_table_association" "public" {
 }
 
 resource "aws_security_group" "ec2" {
-  name        = "${var.project_name}-${var.environment}-ec2"
+  name        = "${var.project_name}-${var.environment}-ec2-security-group"
   description = "Security group for ${var.project_name} ${var.environment} EC2"
   vpc_id      = aws_vpc.main.id
 

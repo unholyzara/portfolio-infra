@@ -28,8 +28,10 @@ data "aws_s3_bucket" "backup" {
   bucket = data.terraform_remote_state.infrastructure.outputs.backup_bucket_name
 }
 
-data "aws_secretsmanager_secret" "this" {
-  name = data.terraform_remote_state.infrastructure.outputs.lambda_secrets_names[var.service].name
+data "aws_ssm_parameter" "this" {
+  for_each = local.shared_secrets
+
+  name = data.terraform_remote_state.infrastructure.outputs.shared_secret_ssm_arn[each.key].name
 }
 
 data "aws_vpc" "this" {

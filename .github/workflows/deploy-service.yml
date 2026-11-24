@@ -45,6 +45,14 @@ jobs:
       - name: Checkout portfolio-infra
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install YAML parser
+        run: python -m pip install --quiet PyYAML
+
       - name: Resolve and validate inputs
         id: inputs
         env:
@@ -92,20 +100,33 @@ jobs:
           [[ "${DRY_RUN}" =~ ^(true|false)$ ]] || { echo "Invalid dry_run value" >&2; exit 1; }
           [[ "${RUN_MIGRATIONS}" =~ ^(true|false)$ ]] || { echo "Invalid run_migrations value" >&2; exit 1; }
 
-          SERVICES=$(SERVICE_INPUT="${SERVICE}" ruby -rjson -ryaml -e '
-            compose = YAML.safe_load_file("orchestration/docker-compose.yml")
-            available = compose.fetch("services").filter_map do |name, config|
-              name if config.dig("x-repository-info", "deployable") == true
-            end
-            input = ENV.fetch("SERVICE_INPUT")
-            selected = input.empty? ? available : input.split(",", -1).map(&:strip)
-            abort "Service list contains an empty name" if selected.any?(&:empty?)
-            duplicates = selected.select { |name| selected.count(name) > 1 }.uniq
-            abort "Duplicate services: #{duplicates.join(", ")}" unless duplicates.empty?
-            invalid = selected - available
-            abort "Unknown or non-deployable service: #{invalid.join(", ")}" unless invalid.empty?
-            puts JSON.generate(selected)
-          ')
+          SERVICES=$(SERVICE_INPUT="${SERVICE}" python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          import yaml
+
+          with open("orchestration/docker-compose.yml", encoding="utf-8") as compose_file:
+              compose = yaml.safe_load(compose_file)
+          available = [
+              name
+              for name, config in compose["services"].items()
+              if config.get("x-repository-info", {}).get("deployable") is True
+          ]
+          service_input = os.environ["SERVICE_INPUT"]
+          selected = available if not service_input else [name.strip() for name in service_input.split(",")]
+          if any(not name for name in selected):
+              sys.exit("Service list contains an empty name")
+          duplicates = sorted({name for name in selected if selected.count(name) > 1})
+          if duplicates:
+              sys.exit("Duplicate services: " + ", ".join(duplicates))
+          invalid = [name for name in selected if name not in available]
+          if invalid:
+              sys.exit("Unknown or non-deployable service: " + ", ".join(invalid))
+          print(json.dumps(selected))
+          PY
+          )
 
           {
             echo "services=${SERVICES}"
@@ -180,7 +201,7 @@ jobs:
           [ "${INSTANCE_ID}" = "None" ] && INSTANCE_ID=""
           echo "instance_id=${INSTANCE_ID}" >> "$GITHUB_OUTPUT"
 
-      - name: Inject secrets and deploy via SSM
+      - name: Deploy service via SSM
         if: steps.ec2.outputs.instance_id != '' && needs.prepare.outputs.dry_run == 'false'
         env:
           SERVICE: ${{ matrix.service }}
@@ -189,33 +210,11 @@ jobs:
           RUN_MIGRATIONS: ${{ needs.prepare.outputs.run_migrations }}
           INSTANCE_ID: ${{ steps.ec2.outputs.instance_id }}
         run: |
-          ENV_VAR=$(echo "${SERVICE^^}_TAG" | tr '-' '_')
-          SECRETS_FILE="./orchestration/services/${SERVICE}/secrets/${TO_ENVIRONMENT}.yml"
-
-          INJECT_COMMANDS=""
-          if [ -f "${SECRETS_FILE}" ]; then
-            while IFS=': ' read -r env_var ssm_path; do
-              [ -z "${env_var}" ] && continue
-              INJECT_COMMANDS="${INJECT_COMMANDS},'VALUE=\$(aws ssm get-parameter --name ${ssm_path} --with-decryption --query Parameter.Value --output text) && sed -i \"s|^${env_var}=.*|${env_var}=\$VALUE|\" .env || echo \"${env_var}=\$VALUE\" >> .env'"
-            done < "${SECRETS_FILE}"
-          fi
-
-          COMMANDS="[
-            'cd /home/deploy/app/orchestration',
-            'grep -q \"^${ENV_VAR}=\" .env && sed -i \"s|^${ENV_VAR}=.*|${ENV_VAR}=${IMAGE_TAG}|\" .env || echo \"${ENV_VAR}=${IMAGE_TAG}\" >> .env'
-            ${INJECT_COMMANDS},
-            'docker compose pull ${SERVICE}'"
-
-          if [ "${RUN_MIGRATIONS}" = "true" ] && [ "${SERVICE}" = "api" ]; then
-            COMMANDS="${COMMANDS},'docker compose run --rm ${SERVICE} python manage.py migrate'"
-          fi
-
-          COMMANDS="${COMMANDS},'docker compose up -d ${SERVICE}']"
-
+          COMMANDS=$(SERVICE="${SERVICE}" TO_ENVIRONMENT="${TO_ENVIRONMENT}" IMAGE_TAG="${IMAGE_TAG}" RUN_MIGRATIONS="${RUN_MIGRATIONS}" python3 -c 'import json, os; service=os.environ["SERVICE"]; env=os.environ["TO_ENVIRONMENT"]; tag=os.environ["IMAGE_TAG"]; migrate=os.environ["RUN_MIGRATIONS"]; print(json.dumps({"commands": [f"sudo -u deploy git -C /home/deploy/app pull --ff-only origin main", f"sudo -u deploy python3 /home/deploy/app/orchestration/scripts/helpers/deploy_service.py {service} {env} {tag} {migrate}"]}))')
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "${INSTANCE_ID}" \
             --document-name "AWS-RunShellScript" \
-            --parameters commands="${COMMANDS}" \
+            --parameters "${COMMANDS}" \
             --comment "Deploy ${SERVICE}:${IMAGE_TAG} to ${TO_ENVIRONMENT}" \
             --query "Command.CommandId" \
             --output text)

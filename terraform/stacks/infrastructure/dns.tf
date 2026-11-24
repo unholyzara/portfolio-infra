@@ -1,5 +1,4 @@
 module "dns" {
-  count  = var.domain_ready ? 1 : 0
   source = "../../modules/dns"
 
   root_domain          = var.root_domain

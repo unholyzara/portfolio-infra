@@ -2,6 +2,40 @@ name: portfolio
 x-environments:
   - name: beta
   - name: prd
+x-shared-secrets:
+  secret-key:
+    value:
+      length: 32
+      special: false
+      override_special: null
+  grafana-password:
+    value:
+      length: 64
+      special: true
+      override_special: "-_=+.,~"
+  db-user:
+    value:
+  db-password:
+    value:
+      length: 64
+      special: true
+      override_special: "-_=+.,~"
+  db-name:
+    value:
+  api-db-user:
+    value:
+  api-db-password:
+    value:
+      length: 64
+      special: true
+      override_special: "-_=+.,~"
+  backup-db-user:
+    value:
+  backup-db-password:
+    value:
+      length: 64
+      special: true
+      override_special: "-_=+.,~"
 services:
   nginx:
     image: nginx:alpine
@@ -29,6 +63,8 @@ services:
     image: ${ECR_REGISTRY}/portfolio-frontend:${FRONTEND_TAG}
     restart: unless-stopped
     mem_limit: ${FRONTEND_MEM_LIMIT:-32m}
+    env_file:
+      - ./services/frontend/${ENVIRONMENT}.env
     depends_on:
       - api
     x-repository-info:
@@ -67,10 +103,14 @@ services:
     image: ${ECR_REGISTRY}/portfolio-api:${API_TAG}
     restart: unless-stopped
     mem_limit: ${API_MEM_LIMIT:-256m}
-    environment:
-      WEB_CONCURRENCY: ${API_WORKERS:-1}
     env_file:
       - ./services/api/${ENVIRONMENT}.env
+    environment:
+      WEB_CONCURRENCY: ${API_WORKERS:-1}
+      SECRET_KEY: ${SECRET_KEY}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
     depends_on:
       - postgres
     x-repository-info:
@@ -79,6 +119,15 @@ services:
       deployable: true
       visibility: public
     x-subdomain: null
+    x-shared-secrets:
+      secret-key:
+        env-var: SECRET_KEY
+      api-db-user:
+        env-var: DB_USER
+      api-db-password:
+        env-var: DB_PASSWORD
+      db-name:
+        env-var: DB_NAME
     x-diagram:
       kind: backend
       stack: Django + DRF
@@ -92,7 +141,9 @@ services:
     mem_limit: ${POSTGRES_MEM_LIMIT:-192m}
     command: [ "postgres", "-c", "shared_buffers=${PG_SHARED_BUFFERS:-48MB}", "-c", "max_connections=30" ]
     environment:
-      - POSTGRES_PASSWORD=${POSTGRES_ROOT_PASSWORD}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
       - API_DB_PASSWORD=${API_DB_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -116,9 +167,9 @@ services:
     profiles:
       - monitoring
     environment:
-      - GF_SERVER_ROOT_URL=https://grafana.DOMINIO
-      - GF_AUTH_ANONYMOUS_ENABLED=false
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
+    env_file:
+      - ./services/grafana/${ENVIRONMENT}.env
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
@@ -148,7 +199,6 @@ x-lambdas:
       kind: lambda
       stack: Backup su S3
       calls: [ postgres ]
-    x-secret: true
     x-backup: true
     x-schedule: 0 0 * * ? *
 

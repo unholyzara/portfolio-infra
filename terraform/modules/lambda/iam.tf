@@ -32,8 +32,8 @@ resource "aws_iam_role_policy" "permissions" {
   policy = var.permissions_policy_json
 }
 
-resource "aws_iam_role_policy" "secrets_access" {
-  count = length(var.secret_arns) == 0 ? 0 : 1
+resource "aws_iam_role_policy" "ssm_access" {
+  count = length(var.ssm_parameters) == 0 ? 0 : 1
 
   name = "${local.function_name}-secrets-access"
   role = aws_iam_role.lambda.id
@@ -45,7 +45,7 @@ resource "aws_iam_role_policy" "secrets_access" {
       Action = [
         "secretsmanager:GetSecretValue"
       ]
-      Resource = var.secret_arns
+      Resource = [for key, ssm_parameter in var.ssm_parameters : ssm_parameter.arn]
     }]
   })
 }

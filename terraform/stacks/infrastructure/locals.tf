@@ -13,14 +13,11 @@ locals {
     if try(service["x-subdomain"], null) != null
   }
 
+  ssm_parameters = local.docker_compose_file["x-shared-secrets"]
+
   backup_lambdas = {
     for name, lmb in local.lambda_data :
     name => lmb
     if try(lmb["x-backup"], false)
-  }
-  lambda_secrets = {
-    for name, lmb in local.lambda_data :
-    name => name
-    if lmb["x-secret"]
   }
 }

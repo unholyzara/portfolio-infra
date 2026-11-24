@@ -20,12 +20,6 @@ variable "autodestroy" {
   default     = false
 }
 
-variable "domain_ready" {
-  description = "Set to true once the domain is registered and the Route 53 hosted zone exists."
-  type        = bool
-  default     = false
-}
-
 variable "subdomain" {
   description = "Subdomain prefix for the environment (e.g. beta). Null for prd."
   type        = string

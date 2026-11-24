@@ -2,7 +2,7 @@ module "ec2" {
   source = "../../modules/ec2"
 
   environment       = var.environment
-  aws_region        = data.aws_region.current.name
+  aws_region        = var.aws_region
   project_name      = var.project_name
   subnet_id         = module.vpc.public_subnet_id
   security_group_id = module.vpc.ec2_security_group_id

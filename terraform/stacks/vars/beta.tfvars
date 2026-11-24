@@ -1,0 +1,2 @@
+environment = "beta"
+autodestroy = true

@@ -3,3 +3,4 @@ doc/*
 *.dump
 db_backups
 .terraform
+orchestration/.env

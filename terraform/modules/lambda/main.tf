@@ -14,7 +14,7 @@ resource "aws_lambda_function" "this" {
   }
 
   dynamic "environment" {
-    for_each = length(var.environment_variables) > 0 ? [var.environment_variables] : []
+    for_each = length(local.environment_variables) > 0 ? [local.environment_variables] : []
 
     content {
       variables = environment.value
@@ -42,6 +42,6 @@ resource "aws_lambda_function" "this" {
     aws_iam_role_policy_attachment.basic_execution,
     aws_iam_role_policy_attachment.vpc_access,
     aws_iam_role_policy.permissions,
-    aws_iam_role_policy.secrets_access,
+    aws_iam_role_policy.ssm_access,
   ]
 }

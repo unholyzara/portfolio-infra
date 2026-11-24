@@ -13,3 +13,15 @@ resource "aws_ssm_parameter" "deploy_tag" {
     ignore_changes = [value]
   }
 }
+
+module "shared_secret" {
+  source = "../../modules/ssm_secret"
+
+  for_each = local.ssm_parameters
+
+  name         = each.key
+  project_name = var.project_name
+  environment  = var.environment
+
+  value = each.value.value
+}

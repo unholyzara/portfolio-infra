@@ -4,7 +4,7 @@ variable "environment" {
 }
 
 variable "project_name" {
-  type = string 
+  type = string
 }
 
 variable "function_name" {
@@ -109,7 +109,10 @@ variable "tags" {
   default     = {}
 }
 
-variable "secret_arns" {
-  type = list(string)
-  default = []
+variable "ssm_parameters" {
+  type = map(object({
+    name : string
+    arn : string
+  }))
+  default = {}
 }

@@ -2,8 +2,12 @@ output "backup_bucket_name" {
   value = module.backup["backup"].bucket.name
 }
 
-output "lambda_secrets_names" {
-  value = aws_secretsmanager_secret.lambda_secret
+output "shared_secret_ssm_name" {
+  value = module.shared_secret.name
+}
+
+output "shared_secret_ssm_arn" {
+  value = module.shared_secret.arn
 }
 
 output "vpc_id" {

@@ -1,8 +1,7 @@
 locals {
   docker_compose_file = yamldecode(file("${path.module}/../../../orchestration/docker-compose.yml"))
   services_data       = local.docker_compose_file["services"]
-  lambdas_data       = local.docker_compose_file["x-lambdas"]
-  environments        = local.docker_compose_file["x-environments"]
+  lambdas_data        = local.docker_compose_file["x-lambdas"]
 
   services = {
     for name, service in local.services_data :
@@ -18,14 +17,5 @@ locals {
       { name = lambda },
       lambda["x-repository-info"]
     )
-  }
-
-  parameters = yamldecode(file("${path.module}/config/parameters.yml"))["parameters"]
-  ssm_parameters = {
-    for pair in setproduct(local.environments, local.parameters) :
-    "${pair[0].name}-${pair[1].name}" => {
-      environment = pair[0].name
-      parameter   = pair[1]
-    }
   }
 }

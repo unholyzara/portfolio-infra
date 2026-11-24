@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 COMPOSE_FILE="${PROJECT_DIR}/docker-compose.local.yml"
+COMPOSE_ENV_FILE="${PROJECT_DIR}/local.env"
 API_ENV_FILE="${PROJECT_DIR}/services/api/local.env"
 
 ADMIN_EMAIL="admin@admin.it"
@@ -33,22 +34,22 @@ API_DB_NAME="$(sed -nE 's/^DB_NAME[[:space:]]*=[[:space:]]*(.*)$/\1/p' "${API_EN
 API_DB_NAME="${API_DB_NAME:-api_db}"
 
 echo "Arresto l'istanza Docker Compose locale esistente..."
-docker compose -f "${COMPOSE_FILE}" down --volumes --remove-orphans
+docker compose --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" down --volumes --remove-orphans
 
 echo "Preparo il database locale..."
-docker compose -f "${COMPOSE_FILE}" build api
-docker compose -f "${COMPOSE_FILE}" up -d postgres
+docker compose --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" build api
+docker compose --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" up -d postgres
 
 echo "Attendo che Postgres sia pronto..."
-until docker compose -f "${COMPOSE_FILE}" exec -T postgres psql -U "${API_DB_USER}" -d "${API_DB_NAME}" -c "SELECT 1;" >/dev/null 2>&1; do
+until docker compose --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" exec -T postgres psql -U "${API_DB_USER}" -d "${API_DB_NAME}" -c "SELECT 1;" >/dev/null 2>&1; do
     sleep 1
 done
 
 echo "Applico le migrazioni e creo l'amministratore..."
-docker compose -f "${COMPOSE_FILE}" run --rm -T \
+docker compose --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" run --rm -T \
     -e "DJANGO_SUPERUSER_EMAIL=${ADMIN_EMAIL}" \
     -e "DJANGO_SUPERUSER_PASSWORD=${ADMIN_PASS}" \
     api python manage.py createsuperuser --noinput
 
 echo "Avvio una nuova istanza locale..."
-exec docker compose -f "${COMPOSE_FILE}" up
+exec docker compose --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" up

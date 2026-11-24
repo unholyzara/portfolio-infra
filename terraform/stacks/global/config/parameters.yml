@@ -1,7 +1,0 @@
-parameters:
-  - name: secret-key
-    type: String
-  - name: db-password
-    type: String
-  - name: root-password
-    type: String

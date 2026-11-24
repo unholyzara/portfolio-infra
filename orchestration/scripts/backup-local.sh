@@ -9,7 +9,7 @@ mkdir -p "$DIR"
 trap 'rm -f "$FILE.tmp"' EXIT
 
 run_psql() {
-  docker compose -f docker-compose.local.yml exec -T postgres \
+  docker compose --env-file local.env -f docker-compose.local.yml exec -T postgres \
     psql -X -At -v ON_ERROR_STOP=1 -v exclude="$EXCLUDE" -U api_user -d api_db
 }
 
