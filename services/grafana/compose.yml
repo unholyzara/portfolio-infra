@@ -6,7 +6,7 @@ services:
     profiles:
       - monitoring
     env_file:
-      - ./services/grafana/envs/${ENVIRONMENT}.env
+      - ../services/grafana/envs/${ENVIRONMENT}.env
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro

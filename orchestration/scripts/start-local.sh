@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 COMPOSE_FILE="${PROJECT_DIR}/docker-compose.local.yml"
 COMPOSE_ENV_FILE="${PROJECT_DIR}/local.env"
-API_ENV_FILE="${PROJECT_DIR}/services/api/local.env"
+API_ENV_FILE="${PROJECT_DIR}/../services/api/local.env"
 
 ADMIN_EMAIL="admin@admin.it"
 ADMIN_PASS="admin"

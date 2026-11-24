@@ -4,6 +4,6 @@ services:
     restart: unless-stopped
     mem_limit: ${ADMIN_MEM_LIMIT:-32m}
     env_file:
-      - ./services/admin/envs/${ENVIRONMENT}.env
+      - ../services/admin/envs/${ENVIRONMENT}.env
     depends_on:
       - api

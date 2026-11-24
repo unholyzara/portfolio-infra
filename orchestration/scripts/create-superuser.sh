@@ -3,10 +3,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 COMPOSE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$COMPOSE_DIR"
 
 compose_args=(-f "$COMPOSE_DIR/docker-compose.yml")
-for file in "$COMPOSE_DIR"/services/*/compose.yml; do
+for file in "$ROOT_DIR"/services/*/compose.yml; do
     [[ -f "$file" ]] || continue
     compose_args+=(-f "$file")
 done

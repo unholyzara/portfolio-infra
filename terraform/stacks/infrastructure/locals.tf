@@ -2,7 +2,7 @@ locals {
   ecr_registry = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com"
 
 
-  services_dir         = "${path.module}/../../../orchestration/services"
+  services_dir         = "${path.module}/../../../services"
   service_config_files = fileset(local.services_dir, "*/config.yml")
 
   services_data = {

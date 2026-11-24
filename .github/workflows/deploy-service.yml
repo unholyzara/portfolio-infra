@@ -109,7 +109,7 @@ jobs:
           import yaml
 
           available = []
-          for config_file in sorted(Path("orchestration/services").glob("*/config.yml")):
+          for config_file in sorted(Path("services").glob("*/config.yml")):
               with config_file.open(encoding="utf-8") as source:
                   config = yaml.safe_load(source) or {}
               repository_info = config.get("repository-info", {})
@@ -225,7 +225,7 @@ jobs:
           override=$(sudo -u deploy mktemp)
           trap 'rm -f "$override"' EXIT
           set -- -f {root}/docker-compose.yml
-          for file in {root}/services/*/compose.yml; do
+          for file in /home/deploy/app/services/*/compose.yml; do
             [ -f "$file" ] || continue
             set -- "$@" -f "$file"
           done

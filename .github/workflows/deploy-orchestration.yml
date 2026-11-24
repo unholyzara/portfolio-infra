@@ -67,7 +67,7 @@ jobs:
           override=$(sudo -u deploy mktemp)
           trap 'rm -f "$override"' EXIT
           set -- -f {root}/docker-compose.yml
-          for file in {root}/services/*/compose.yml; do
+          for file in /home/deploy/app/services/*/compose.yml; do
             [ -f "$file" ] || continue
             set -- "$@" -f "$file"
           done

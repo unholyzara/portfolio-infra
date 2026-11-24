@@ -1,5 +1,5 @@
 locals {
-  services_dir         = "${path.module}/../../../orchestration/services"
+  services_dir         = "${path.module}/../../../services"
   service_config_files = fileset(local.services_dir, "*/config.yml")
   services_data = {
     for config_file in local.service_config_files :

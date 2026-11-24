@@ -40,10 +40,10 @@ for line in lines:
 if env_values.get("ENVIRONMENT") != environment:
     fail("Target environment does not match the EC2 environment")
 
-with (compose_dir / "services" / service_name / "compose.yml").open(encoding="utf-8") as source:
+with (compose_dir.parent / "services" / service_name / "compose.yml").open(encoding="utf-8") as source:
     compose = yaml.safe_load(source)
 service = compose.get("services", {}).get(service_name)
-config_file = compose_dir / "services" / service_name / "config.yml"
+config_file = compose_dir.parent / "services" / service_name / "config.yml"
 try:
     with config_file.open(encoding="utf-8") as source:
         service_config = yaml.safe_load(source) or {}

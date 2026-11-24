@@ -32,7 +32,7 @@ services:
     build:
       context: ../../portfolio-api
     env_file:
-      - ./services/api/envs/${ENVIRONMENT}.env
+      - ../services/api/envs/${ENVIRONMENT}.env
     depends_on:
       - postgres
 

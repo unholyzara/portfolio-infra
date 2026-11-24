@@ -22,7 +22,7 @@ environment = sys.argv[1]
 script_dir = Path(__file__).resolve().parent.parent
 compose_dir = script_dir.parent
 env_file = compose_dir / ".env"
-service_compose_files = sorted((compose_dir / "services").glob("*/compose.yml"))
+service_compose_files = sorted((compose_dir.parent / "services").glob("*/compose.yml"))
 
 if not env_file.is_file():
     fail(f"Missing Compose environment file: {env_file}")

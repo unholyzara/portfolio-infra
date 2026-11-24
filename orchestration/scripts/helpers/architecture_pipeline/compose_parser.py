@@ -36,7 +36,7 @@ def resolve_domain(values, domain):
 
 
 def load_service_config(compose_path, service_id):
-    config_path = Path(compose_path).parent / "services" / service_id / "config.yml"
+    config_path = Path(compose_path).parent.parent / "services" / service_id / "config.yml"
     with config_path.open(encoding="utf-8") as file:
         return yaml.safe_load(file) or {}
 
@@ -52,7 +52,7 @@ def parse_compose(compose_path, domain=None):
         compose = yaml.safe_load(file)
 
     services = {}
-    service_dir = Path(compose_path).resolve().parent / "services"
+    service_dir = Path(compose_path).resolve().parent.parent / "services"
     for service_compose_path in sorted(service_dir.glob("*/compose.yml")):
         with service_compose_path.open(encoding="utf-8") as file:
             service_compose = yaml.safe_load(file) or {}

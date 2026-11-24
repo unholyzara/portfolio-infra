@@ -6,10 +6,10 @@ from pathlib import Path
 import yaml
 
 
-def load_service_secrets(compose_dir, services, project_name, environment, region):
+def load_service_secrets(compose_dir: Path, services, project_name, environment, region):
     secrets_by_service = {}
     for service_name in services:
-        secrets_file = compose_dir / "services" / service_name / "secrets.yml"
+        secrets_file = compose_dir.parent / "services" / service_name / "secrets.yml"
         if not secrets_file.is_file():
             continue
 
