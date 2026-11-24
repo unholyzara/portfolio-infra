@@ -22,6 +22,4 @@ module "shared_secret" {
   name         = each.key
   project_name = var.project_name
   environment  = var.environment
-
-  value = each.value.value
 }
