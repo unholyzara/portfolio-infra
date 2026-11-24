@@ -89,15 +89,3 @@ x-lambdas:
       calls: [ postgres ]
     x-backup: true
     x-schedule: 0 0 * * ? *
-
-x-platform:
-  nodes:
-    browser: { label: Browser, kind: client }
-    route53: { label: Route 53, stack: DNS, kind: aws }
-    s3_backup: { label: S3, stack: backup bucket, kind: aws }
-    cloudwatch: { label: CloudWatch, stack: metrics, kind: aws }
-  edges:
-    - [ browser, nginx, HTTPS ]
-    - [ browser, route53, DNS ]
-    - [ backup, s3_backup, dump ]
-    - [ grafana, cloudwatch, metrics ]

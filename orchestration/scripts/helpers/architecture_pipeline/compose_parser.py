@@ -100,7 +100,9 @@ def parse_compose(compose_path, domain=None):
             })
 
     # External platform nodes
-    platform = compose.get("x-platform", {})
+    platform_path = Path(compose_path).resolve().parent / "diagram" / "platform.yml"
+    with platform_path.open(encoding="utf-8") as file:
+        platform = yaml.safe_load(file) or {}
 
     for node_id, node in platform.get("nodes", {}).items():
         nodes.append({
