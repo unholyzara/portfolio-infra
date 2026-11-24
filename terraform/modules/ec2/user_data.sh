@@ -53,7 +53,9 @@ chmod 440 /etc/sudoers.d/ssm-agent-users
 mkdir -p $APP_DIR
 cd $APP_DIR
 
-git clone https://github.com/${github_org}/${github_repository}.git .
+git clone --filter=blob:none --sparse \
+  https://github.com/${github_org}/${github_repository}.git .
+git sparse-checkout set orchestration services
 chown -R deploy:deploy $APP_DIR
 
 cat > $COMPOSE_DIR/.env << ENVFILE
