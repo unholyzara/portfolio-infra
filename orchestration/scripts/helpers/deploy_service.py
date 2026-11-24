@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 import os
 import re
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 import yaml
-from compose_secrets import load_service_secrets, temporary_compose_override
+from compose_secrets import load_service_secrets, write_compose_override
 
 
 def fail(message):
@@ -15,10 +14,13 @@ def fail(message):
     raise SystemExit(1)
 
 
-if len(sys.argv) != 5:
-    fail("Usage: deploy_service.py <service> <beta|prd> <image-tag> <true|false>")
+if len(sys.argv) != 6:
+    fail(
+        "Usage: deploy_service.py <service> <beta|prd> <image-tag> "
+        "<true|false> <compose-override-file>"
+    )
 
-service_name, environment, image_tag, run_migrations = sys.argv[1:]
+service_name, environment, image_tag, run_migrations, override_file = sys.argv[1:]
 if environment not in {"beta", "prd"}:
     fail(f"Invalid environment: {environment}")
 if not re.fullmatch(r"[A-Za-z0-9._-]+", image_tag):
@@ -83,28 +85,4 @@ finally:
     if os.path.exists(temp_path):
         os.unlink(temp_path)
 
-with temporary_compose_override({service_name: secret_values}) as override_file:
-    compose_command = [
-        "docker",
-        "compose",
-        "-f",
-        str(compose_dir / "docker-compose.yml"),
-        "-f",
-        str(override_file),
-    ]
-    subprocess.run([*compose_command, "pull", service_name], cwd=compose_dir, check=True)
-    if run_migrations == "true" and service_name == "api":
-        subprocess.run(
-            [
-                *compose_command,
-                "run",
-                "--rm",
-                service_name,
-                "python",
-                "manage.py",
-                "migrate",
-            ],
-            cwd=compose_dir,
-            check=True,
-        )
-    subprocess.run([*compose_command, "up", "-d", service_name], cwd=compose_dir, check=True)
+write_compose_override({service_name: secret_values}, override_file)

@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 
 import yaml
-from compose_secrets import load_service_secrets, temporary_compose_override
+from compose_secrets import load_service_secrets, write_compose_override
 
 
 def fail(message):
@@ -15,8 +15,8 @@ def fail(message):
     raise SystemExit(1)
 
 
-if len(sys.argv) != 2 or sys.argv[1] not in {"beta", "prd"}:
-    fail("Usage: deploy_orchestration.py <beta|prd>")
+if len(sys.argv) != 3 or sys.argv[1] not in {"beta", "prd"}:
+    fail("Usage: deploy_orchestration.py <beta|prd> <compose-override-file>")
 
 environment = sys.argv[1]
 script_dir = Path(__file__).resolve().parent.parent
@@ -115,16 +115,4 @@ finally:
     if os.path.exists(temp_path):
         os.unlink(temp_path)
 
-profile_args = ["--profile", "monitoring"] if environment == "prd" else []
-with temporary_compose_override(service_secrets) as override_file:
-    compose_command = [
-        "docker",
-        "compose",
-        "-f",
-        str(compose_file),
-        "-f",
-        str(override_file),
-        *profile_args,
-    ]
-    subprocess.run([*compose_command, "pull"], cwd=compose_dir, check=True)
-    subprocess.run([*compose_command, "up", "-d"], cwd=compose_dir, check=True)
+write_compose_override(service_secrets, sys.argv[2])

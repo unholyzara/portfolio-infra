@@ -210,7 +210,28 @@ jobs:
           RUN_MIGRATIONS: ${{ needs.prepare.outputs.run_migrations }}
           INSTANCE_ID: ${{ steps.ec2.outputs.instance_id }}
         run: |
-          COMMANDS=$(SERVICE="${SERVICE}" TO_ENVIRONMENT="${TO_ENVIRONMENT}" IMAGE_TAG="${IMAGE_TAG}" RUN_MIGRATIONS="${RUN_MIGRATIONS}" python3 -c 'import json, os; service=os.environ["SERVICE"]; env=os.environ["TO_ENVIRONMENT"]; tag=os.environ["IMAGE_TAG"]; migrate=os.environ["RUN_MIGRATIONS"]; print(json.dumps({"commands": [f"sudo -u deploy git -C /home/deploy/app pull --ff-only origin main", f"sudo -u deploy python3 /home/deploy/app/orchestration/scripts/helpers/deploy_service.py {service} {env} {tag} {migrate}"]}))')
+          COMMANDS=$(SERVICE="${SERVICE}" TO_ENVIRONMENT="${TO_ENVIRONMENT}" IMAGE_TAG="${IMAGE_TAG}" RUN_MIGRATIONS="${RUN_MIGRATIONS}" python3 - <<'PY'
+          import json
+          import os
+
+          service = os.environ["SERVICE"]
+          env = os.environ["TO_ENVIRONMENT"]
+          tag = os.environ["IMAGE_TAG"]
+          migrate = os.environ["RUN_MIGRATIONS"]
+          root = "/home/deploy/app/orchestration"
+          deploy = f'''set -e
+          cd {root}
+          override=$(sudo -u deploy mktemp)
+          trap 'rm -f "$override"' EXIT
+          sudo -u deploy python3 {root}/scripts/helpers/deploy_service.py {service} {env} {tag} {migrate} "$override"
+          sudo -u deploy docker compose -f {root}/docker-compose.yml -f "$override" pull {service}
+          sudo -u deploy docker compose -f {root}/docker-compose.yml -f "$override" up -d {service}'''
+          print(json.dumps({"commands": [
+              "sudo -u deploy git -C /home/deploy/app pull --ff-only origin main",
+              deploy,
+          ]}))
+          PY
+          )
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "${INSTANCE_ID}" \
             --document-name "AWS-RunShellScript" \

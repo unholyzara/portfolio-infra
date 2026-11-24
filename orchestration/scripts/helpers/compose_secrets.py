@@ -1,8 +1,6 @@
 import os
 import re
 import subprocess
-import tempfile
-from contextlib import contextmanager
 from pathlib import Path
 
 import yaml
@@ -60,8 +58,7 @@ def load_service_secrets(compose_dir, services, project_name, environment, regio
     return secrets_by_service
 
 
-@contextmanager
-def temporary_compose_override(secrets_by_service):
+def write_compose_override(secrets_by_service, output_path):
     override = {
         "services": {
             service_name: {
@@ -74,12 +71,7 @@ def temporary_compose_override(secrets_by_service):
             if values
         }
     }
-    fd, temp_path = tempfile.mkstemp(prefix="compose-secrets-", suffix=".yml")
-    try:
-        os.fchmod(fd, 0o600)
-        with os.fdopen(fd, "w", encoding="utf-8") as target:
-            yaml.safe_dump(override, target, sort_keys=False)
-        yield Path(temp_path)
-    finally:
-        if os.path.exists(temp_path):
-            os.unlink(temp_path)
+    fd = os.open(output_path, os.O_WRONLY | os.O_TRUNC)
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as target:
+        yaml.safe_dump(override, target, sort_keys=False)

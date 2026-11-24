@@ -54,7 +54,24 @@ jobs:
           ENVIRONMENT: ${{ inputs.environment }}
           INSTANCE_ID: ${{ steps.ec2.outputs.instance_id }}
         run: |
-          COMMANDS=$(python3 -c 'import json, os; e=os.environ["ENVIRONMENT"]; ready="for i in $(seq 1 120); do [ -f /home/deploy/app/orchestration/.env ] && [ \"$(stat -c %U /home/deploy/app/orchestration/.env)\" = deploy ] && systemctl is-active --quiet docker && break; sleep 5; done; [ -f /home/deploy/app/orchestration/.env ] && [ \"$(stat -c %U /home/deploy/app/orchestration/.env)\" = deploy ] && systemctl is-active --quiet docker || { echo \"EC2 bootstrap did not finish\" >&2; exit 1; }"; print(json.dumps({"commands": [ready, f"sudo -u deploy git -C /home/deploy/app pull --ff-only origin main", f"sudo -u deploy python3 /home/deploy/app/orchestration/scripts/helpers/deploy_orchestration.py {e}"]}))')
+          COMMANDS=$(ENVIRONMENT="${ENVIRONMENT}" python3 - <<'PY'
+          import json
+          import os
+
+          env = os.environ["ENVIRONMENT"]
+          root = "/home/deploy/app/orchestration"
+          ready = "for i in $(seq 1 120); do [ -f /home/deploy/app/orchestration/.env ] && [ \"$(stat -c %U /home/deploy/app/orchestration/.env)\" = deploy ] && systemctl is-active --quiet docker && break; sleep 5; done; [ -f /home/deploy/app/orchestration/.env ] && [ \"$(stat -c %U /home/deploy/app/orchestration/.env)\" = deploy ] && systemctl is-active --quiet docker || { echo \"EC2 bootstrap did not finish\" >&2; exit 1; }"
+          profile = " --profile monitoring" if env == "prd" else ""
+          deploy = f'''set -e
+          cd {root}
+          override=$(sudo -u deploy mktemp)
+          trap 'rm -f "$override"' EXIT
+          sudo -u deploy python3 {root}/scripts/helpers/deploy_orchestration.py {env} "$override"
+          sudo -u deploy docker compose -f {root}/docker-compose.yml -f "$override"{profile} pull
+          sudo -u deploy docker compose -f {root}/docker-compose.yml -f "$override"{profile} up -d'''
+          print(json.dumps({"commands": [ready, "sudo -u deploy git -C /home/deploy/app pull --ff-only origin main", deploy]}))
+          PY
+          )
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "${INSTANCE_ID}" \
             --document-name "AWS-RunShellScript" \
