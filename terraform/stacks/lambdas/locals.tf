@@ -10,9 +10,9 @@ locals {
 
   docker_compose_file = yamldecode(file("${local.orchestration_dir}/docker-compose.yml"))
   lambda_data         = local.docker_compose_file["x-lambdas"][var.service]
+  shared_secrets      = local.docker_compose_file["x-shared-secrets"]
 
-  lambda_secrets_file = file("${local.orchestration_dir}/services/${var.service}/secrets.yml")
-  shared_secrets      = local.lambda_data["x-shared-secrets"]
+  lambda_secrets_file = yamldecode(file("${local.orchestration_dir}/services/${var.service}/secrets.yml"))
   ssm_parameters = {
     for env_var, ssm_name in local.lambda_secrets_file :
     env_var => { env_var : data.aws_ssm_parameter.this[ssm_name] }
