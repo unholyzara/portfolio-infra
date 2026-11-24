@@ -1,0 +1,9 @@
+services:
+  frontend:
+    image: ${ECR_REGISTRY}/portfolio-frontend:${FRONTEND_TAG}
+    restart: unless-stopped
+    mem_limit: ${FRONTEND_MEM_LIMIT:-32m}
+    env_file:
+      - ./services/frontend/${ENVIRONMENT}.env
+    depends_on:
+      - api

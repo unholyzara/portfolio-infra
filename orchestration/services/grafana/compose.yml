@@ -1,0 +1,14 @@
+services:
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    mem_limit: ${GRAFANA_MEM_LIMIT:-192m}
+    profiles:
+      - monitoring
+    env_file:
+      - ./services/grafana/${ENVIRONMENT}.env
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+volumes:
+  grafana-data:

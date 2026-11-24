@@ -1,0 +1,9 @@
+services:
+  admin:
+    image: ${ECR_REGISTRY}/portfolio-admin:${ADMIN_TAG}
+    restart: unless-stopped
+    mem_limit: ${ADMIN_MEM_LIMIT:-32m}
+    env_file:
+      - ./services/admin/${ENVIRONMENT}.env
+    depends_on:
+      - api

@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    mem_limit: ${POSTGRES_MEM_LIMIT:-192m}
+    command: [ "postgres", "-c", "shared_buffers=${PG_SHARED_BUFFERS:-48MB}", "-c", "max_connections=30" ]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres" ]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+volumes:
+  postgres-data:

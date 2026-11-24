@@ -1,0 +1,11 @@
+services:
+  api:
+    image: ${ECR_REGISTRY}/portfolio-api:${API_TAG}
+    restart: unless-stopped
+    mem_limit: ${API_MEM_LIMIT:-256m}
+    env_file:
+      - ./services/api/${ENVIRONMENT}.env
+    environment:
+      WEB_CONCURRENCY: ${API_WORKERS:-1}
+    depends_on:
+      - postgres

@@ -22,7 +22,7 @@ environment = sys.argv[1]
 script_dir = Path(__file__).resolve().parent.parent
 compose_dir = script_dir.parent
 env_file = compose_dir / ".env"
-compose_file = compose_dir / "docker-compose.yml"
+service_compose_files = sorted((compose_dir / "services").glob("*/compose.yml"))
 
 if not env_file.is_file():
     fail(f"Missing Compose environment file: {env_file}")
@@ -45,10 +45,11 @@ region = env_values.get("AWS_REGION")
 if not project_name or not region:
     fail("PROJECT_NAME and AWS_REGION must be set in the Compose .env file")
 
-with compose_file.open(encoding="utf-8") as source:
-    compose = yaml.safe_load(source)
-
-services = compose.get("services", {})
+services = {}
+for service_compose_file in service_compose_files:
+    with service_compose_file.open(encoding="utf-8") as source:
+        compose = yaml.safe_load(source) or {}
+    services.update(compose.get("services", {}))
 service_secrets = {}
 service_tags = {}
 for service_name, config in services.items():

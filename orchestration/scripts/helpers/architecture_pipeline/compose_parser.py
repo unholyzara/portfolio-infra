@@ -51,10 +51,15 @@ def parse_compose(compose_path, domain=None):
     with open(compose_path, encoding="utf-8") as file:
         compose = yaml.safe_load(file)
 
+    services = {}
+    service_dir = Path(compose_path).resolve().parent / "services"
+    for service_compose_path in sorted(service_dir.glob("*/compose.yml")):
+        with service_compose_path.open(encoding="utf-8") as file:
+            service_compose = yaml.safe_load(file) or {}
+        services.update(service_compose.get("services", {}))
+
     nodes = []
     edges = []
-
-    services = compose.get("services", {})
 
     # Docker Compose services
     for service_id, service in services.items():

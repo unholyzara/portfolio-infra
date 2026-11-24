@@ -66,9 +66,14 @@ jobs:
           cd {root}
           override=$(sudo -u deploy mktemp)
           trap 'rm -f "$override"' EXIT
+          set -- -f {root}/docker-compose.yml
+          for file in {root}/services/*/compose.yml; do
+            [ -f "$file" ] || continue
+            set -- "$@" -f "$file"
+          done
           sudo -u deploy python3 {root}/scripts/helpers/deploy_orchestration.py {env} "$override"
-          sudo -u deploy docker compose -f {root}/docker-compose.yml -f "$override"{profile} pull
-          sudo -u deploy docker compose -f {root}/docker-compose.yml -f "$override"{profile} up -d'''
+          sudo -u deploy docker compose "$@" -f "$override"{profile} pull
+          sudo -u deploy docker compose "$@" -f "$override"{profile} up -d'''
           print(json.dumps({"commands": [ready, "sudo -u deploy git -C /home/deploy/app pull --ff-only origin main", deploy]}))
           PY
           )
