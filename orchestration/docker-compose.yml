@@ -178,8 +178,6 @@ volumes:
 x-lambdas:
   backup:
     profiles: [ backup ]
-    env_file:
-      - ./env/backup/prd.env
     x-repository-info:
       type: lambda
       repo_description: "Portfolio Backup lambda"
