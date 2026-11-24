@@ -12,7 +12,7 @@ locals {
       { name = name },
       service["repository-info"]
     )
-    if !try(service["lambda"], false) && service["repository-info"].deployable
+    if try(service["repository-info"].deployable, false) && !try(service["lambda"], false)
   }
 
   lambdas = {
