@@ -62,6 +62,12 @@ jobs:
         id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Set image metadata
         id: meta
         env:
@@ -75,22 +81,16 @@ jobs:
 
           echo "tag=${BRANCH_TAG}-${TIMESTAMP}" >> "$GITHUB_OUTPUT"
 
-      - name: Build Docker image
+      - name: Build and publish Docker image
         env:
           ECR_REPO_URL: ${{ secrets.ECR_REPO_URL }}
           IMAGE_TAG: ${{ steps.meta.outputs.tag }}
         run: |
-          docker build \
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
             -t "${ECR_REPO_URL}:${IMAGE_TAG}" \
+            --push \
             .
-
-      - name: Push Docker image
-        env:
-          ECR_REPO_URL: ${{ secrets.ECR_REPO_URL }}
-          IMAGE_TAG: ${{ steps.meta.outputs.tag }}
-        run: |
-          docker push \
-            "${ECR_REPO_URL}:${IMAGE_TAG}"
 
       - name: Summary
         env:
