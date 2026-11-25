@@ -28,7 +28,7 @@ if not re.fullmatch(r"[A-Za-z0-9._-]+", image_tag):
 if run_migrations not in {"true", "false"}:
     fail("Invalid run_migrations value")
 
-compose_dir = Path(__file__).resolve().parents.parent
+compose_dir = Path(__file__).resolve().parents[3]
 env_file = compose_dir / ".env"
 with env_file.open(encoding="utf-8") as source:
     lines = source.read().splitlines()

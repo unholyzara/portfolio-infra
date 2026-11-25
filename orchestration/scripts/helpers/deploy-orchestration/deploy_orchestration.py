@@ -19,8 +19,7 @@ if len(sys.argv) != 3 or sys.argv[1] not in {"beta", "prd"}:
     fail("Usage: deploy_orchestration.py <beta|prd> <compose-override-file>")
 
 environment = sys.argv[1]
-script_dir = Path(__file__).resolve().parent.parent
-compose_dir = script_dir.parent
+compose_dir = Path(__file__).resolve().parents[3]
 env_file = compose_dir / ".env"
 service_compose_files = sorted((compose_dir.parent / "services").glob("*/compose.yml"))
 
