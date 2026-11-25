@@ -25,5 +25,5 @@ fi
 docker compose "${compose_args[@]}" run --rm -T \
     -e "DJANGO_SUPERUSER_USERNAME=${ADMIN_USER}" \
     -e "DJANGO_SUPERUSER_PASSWORD=${ADMIN_PASS}" \
-    -e "DJANGO_SUPERUSER_EMAIL=admin@localhost" \
+    -e "DJANGO_SUPERUSER_EMAIL=${ADMIN_EMAIL}" \
     api python manage.py createsuperuser --noinput
