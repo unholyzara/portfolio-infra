@@ -51,6 +51,8 @@ jobs:
       - name: Terraform plan
         run: |
           terraform plan -out=tfplan \
+            -var-file="../vars/common.tfvars" \
+            -var-file="../vars/${ENVIRONMENT}.tfvars" \
             -var-file="vars/common.tfvars" \
             -var-file="vars/${ENVIRONMENT}.tfvars"
 
@@ -87,8 +89,10 @@ jobs:
       - name: Terraform plan
         run: |
           terraform plan -out=tfplan \
-            -var-file="../infrastructure/vars/common.tfvars" \
-            -var-file="../infrastructure/vars/${ENVIRONMENT}.tfvars"
+            -var-file="../vars/common.tfvars" \
+            -var-file="../vars/${ENVIRONMENT}.tfvars" \
+            -var-file="vars/common.tfvars" \
+            -var-file="vars/${ENVIRONMENT}.tfvars"
 
       - name: Upload SSM plan
         uses: actions/upload-artifact@v4
