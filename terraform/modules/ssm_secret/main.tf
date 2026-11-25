@@ -2,7 +2,7 @@ resource "aws_ssm_parameter" "this" {
   name = "/${var.project_name}/${var.environment}/secret/${var.name}"
   type = "SecureString"
 
-  value = ""
+  value = "placeholder"
 
   tags = {
     Env = var.environment
