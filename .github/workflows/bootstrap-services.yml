@@ -42,6 +42,7 @@ jobs:
         working-directory: terraform/stacks/global/
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
+          TF_VAR_github_token: ${{ secrets.GH_ADMIN_TOKEN }}
         run: |
           terraform plan -out=tfplan \
             -var-file=../vars/common.tfvars
@@ -99,4 +100,5 @@ jobs:
         working-directory: terraform/stacks/global/
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
+          TF_VAR_github_token: ${{ secrets.GH_ADMIN_TOKEN }}
         run: terraform apply tfplan
