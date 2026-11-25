@@ -104,6 +104,43 @@ def parse_compose(compose_path, domain=None):
                 "type": "calls"
             })
 
+    # Lambda services have a config.yml but no Docker Compose file. Include
+    # them in the diagram so their calls and platform connections have a node.
+    for config_path in sorted(service_dir.glob("*/config.yml")):
+        service_id = config_path.parent.name
+        if service_id in services:
+            continue
+
+        with config_path.open(encoding="utf-8") as file:
+            config = yaml.safe_load(file) or {}
+        if not config.get("lambda"):
+            continue
+
+        diagram = config.get("diagram") or {}
+        repository = config.get("repository-info") or {}
+        nodes.append({
+            "id": service_id,
+            "label": service_id,
+            "origin": "lambda",
+            "kind": diagram.get("kind", "lambda"),
+            "stack": diagram.get("stack", ""),
+            "profiles": [],
+            "hosts": resolve_domain(diagram.get("public"), domain),
+            "uses": normalize_list(diagram.get("uses")),
+            "metadata": {
+                "subdomain": config.get("subdomain"),
+                "repository": repository
+            }
+        })
+
+        for target in normalize_list(diagram.get("calls")):
+            edges.append({
+                "from": service_id,
+                "to": target,
+                "label": None,
+                "type": "calls"
+            })
+
     # External platform nodes
     platform_path = Path(compose_path).resolve().parent / "diagram" / "platform.yml"
     with platform_path.open(encoding="utf-8") as file:
