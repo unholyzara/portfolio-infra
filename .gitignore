@@ -1,6 +1,7 @@
 doc/*
 *.sql
 *.dump
+*.pyc
 db_backups
 .terraform
 orchestration/.env
