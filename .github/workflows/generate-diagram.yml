@@ -64,7 +64,8 @@ jobs:
           terraform plan \
             -input=false \
             -out=tfplan \
-            -var-file=../common.tfvars \
+            -var-file=../vars/common.tfvars \
+            -var-file=../vars/prd.tfvars \
             -var-file="vars/common.tfvars" \
             -var-file="vars/prd.tfvars"
 
