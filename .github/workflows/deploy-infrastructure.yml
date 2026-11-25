@@ -221,7 +221,7 @@ jobs:
             IS_PRD="false"
           fi
 
-          SCRIPT_B64="$(gzip -9c "${GITHUB_WORKSPACE}/scripts/certs.sh" | base64 -w0)"
+          SCRIPT_B64="$(gzip -9c "${GITHUB_WORKSPACE}/orchestration/scripts/certs.sh" | base64 -w0)"
 
           PARAMETERS="$(jq -n \
             --arg b64 "${SCRIPT_B64}" \
@@ -234,11 +234,11 @@ jobs:
             '{commands: ([
               "set -euo pipefail",
               "install -d /opt/portfolio/scripts",
-              "echo \($b64) | base64 -d | gunzip > /opt/portfolio/scripts/certs.sh",
-              "chmod +x /opt/portfolio/scripts/certs.sh",
+              "echo \($b64) | base64 -d | gunzip > /opt/portfolio/orchestration/scripts/certs.sh",
+              "chmod +x /opt/portfolio/orchestration/scripts/certs.sh",
               "export DOMAIN=\($domain) ENVIRONMENT=\($env) CERT_BUCKET=\($bucket) LETSENCRYPT_EMAIL=\($email) AWS_REGION=\($region)",
-              "/opt/portfolio/scripts/certs.sh ensure"
-            ] + (if $prd == "true" then ["/opt/portfolio/scripts/certs.sh install-timer"] else [] end))}')"
+              "/opt/portfolio/orchestration/scripts/certs.sh ensure"
+            ] + (if $prd == "true" then ["/opt/portfolio/orchestration/scripts/certs.sh install-timer"] else [] end))}')"
 
           COMMAND_ID="$(aws ssm send-command \
             --instance-ids "${INSTANCE_ID}" \
