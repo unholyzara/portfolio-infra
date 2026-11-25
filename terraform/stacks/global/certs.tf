@@ -3,7 +3,7 @@ locals {
 }
 
 resource "aws_s3_bucket" "certs" {
-  bucket = "${prefix}-s3"
+  bucket = "${local.prefix}-s3"
 
   lifecycle {
     prevent_destroy = true
@@ -27,8 +27,4 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "certs" {
       sse_algorithm = "AES256"
     }
   }
-}
-
-output "cert_bucket" {
-  value = aws_s3_bucket.certs.id
 }
