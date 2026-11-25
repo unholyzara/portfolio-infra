@@ -16,6 +16,6 @@ shared-secrets:
 diagram:
   kind: backend
   stack: Django + DRF
-  public: [ DOMINIO/api, admin.DOMINIO/api ]
+  public: [ mattiazaramella.dev/api, admin.mattiazaramella.dev/api ]
   calls: [ postgres ]
   uses: [ ECR, SSM ]

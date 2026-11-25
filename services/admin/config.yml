@@ -7,5 +7,5 @@ subdomain: admin
 diagram:
   kind: frontend
   stack: React
-  public: [ admin.DOMINIO ]
+  public: [ admin.mattiazaramella.dev ]
   uses: [ ECR ]

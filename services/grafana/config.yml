@@ -4,4 +4,4 @@ subdomain: grafana
 diagram:
   kind: monitoring
   stack: Grafana
-  public: [ grafana.DOMINIO ]
+  public: [ grafana.mattiazaramella.dev ]

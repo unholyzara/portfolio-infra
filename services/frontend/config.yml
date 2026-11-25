@@ -7,5 +7,5 @@ subdomain: null
 diagram:
   kind: frontend
   stack: Angular
-  public: [ DOMINIO ]
+  public: [ mattiazaramella.dev ]
   uses: [ ECR ]

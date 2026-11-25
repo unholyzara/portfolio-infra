@@ -23,3 +23,8 @@ variable "infra_repo_name" {
   type        = string
   description = "Infra repository name"
 }
+
+variable "root_domain" {
+  description = "Root domain name managed in Route 53."
+  type        = string
+}
