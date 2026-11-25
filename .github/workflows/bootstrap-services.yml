@@ -59,7 +59,7 @@ jobs:
     needs: [plan]
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
-    environment: bootstrap-services
+    environment: main
     steps:
       - name: Approval gate
         run: echo "Bootstrap Terraform plan approved"
