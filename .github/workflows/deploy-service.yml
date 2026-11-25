@@ -17,7 +17,7 @@ on:
         type: string
         required: false
       image_tag:
-        description: "Image tag to deploy (e.g. main-abc1234)"
+        description: "Image tag to deploy (empty = latest tagged ECR image)"
         type: string
         required: false
       dry_run:
@@ -91,10 +91,6 @@ jobs:
           [[ -z "${IMAGE_TAG}" || "${IMAGE_TAG}" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid image tag" >&2; exit 1; }
           if [ -n "${FROM_ENVIRONMENT}" ] && [ -n "${IMAGE_TAG}" ]; then
             echo "Specify either from_environment or image_tag, not both" >&2
-            exit 1
-          fi
-          if [ -z "${FROM_ENVIRONMENT}" ] && [ -z "${IMAGE_TAG}" ]; then
-            echo "Specify from_environment or image_tag" >&2
             exit 1
           fi
           [[ "${DRY_RUN}" =~ ^(true|false)$ ]] || { echo "Invalid dry_run value" >&2; exit 1; }
@@ -173,8 +169,17 @@ jobs:
               --name "/portfolio/${FROM_ENVIRONMENT}/deploy/${SERVICE}" \
               --query Parameter.Value \
               --output text)
+          elif [ -z "${TAG}" ]; then
+            TAG=$(aws ecr describe-images \
+              --repository-name "portfolio-${SERVICE}" \
+              --filter tagStatus=TAGGED \
+              --query "sort_by(imageDetails, &imagePushedAt)[-1].imageTags[0]" \
+              --output text)
           fi
-          [ -n "${TAG}" ] || { echo "No image tag found for ${SERVICE}" >&2; exit 1; }
+          [ -n "${TAG}" ] && [ "${TAG}" != "None" ] || {
+            echo "No tagged ECR image found for ${SERVICE}" >&2
+            exit 1
+          }
           [[ "${TAG}" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid image tag" >&2; exit 1; }
           echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
 

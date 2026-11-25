@@ -17,7 +17,7 @@ on:
         type: string
         required: false
       image_tag:
-        description: "Image tag to deploy (empty = reuse the recorded tag)"
+        description: "Image tag to deploy (empty = latest tagged ECR image)"
         type: string
         required: false
       dry_run:
@@ -120,14 +120,22 @@ jobs:
           INPUT_IMAGE_TAG: ${{ needs.prepare.outputs.image_tag }}
         run: |
           TAG="${INPUT_IMAGE_TAG}"
-          TAG_ENVIRONMENT="${FROM_ENVIRONMENT:-${TO_ENVIRONMENT}}"
-          if [ -z "${TAG}" ]; then
+          if [ -n "${FROM_ENVIRONMENT}" ]; then
             TAG=$(aws ssm get-parameter \
-              --name "/portfolio/${TAG_ENVIRONMENT}/deploy/${SERVICE}" \
+              --name "/portfolio/${FROM_ENVIRONMENT}/deploy/${SERVICE}" \
               --query Parameter.Value \
               --output text)
+          elif [ -z "${TAG}" ]; then
+            TAG=$(aws ecr describe-images \
+              --repository-name "portfolio-${SERVICE}" \
+              --filter tagStatus=TAGGED \
+              --query "sort_by(imageDetails, &imagePushedAt)[-1].imageTags[0]" \
+              --output text)
           fi
-          [ -n "${TAG}" ] || { echo "No image tag found for ${SERVICE}" >&2; exit 1; }
+          [ -n "${TAG}" ] && [ "${TAG}" != "None" ] || {
+            echo "No tagged ECR image found for ${SERVICE}" >&2
+            exit 1
+          }
           [[ "${TAG}" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid image tag" >&2; exit 1; }
           echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
 
