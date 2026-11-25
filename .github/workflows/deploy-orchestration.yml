@@ -71,7 +71,7 @@ jobs:
             [ -f "$file" ] || continue
             set -- "$@" -f "$file"
           done
-          sudo -u deploy python3 {root}/scripts/helpers/deploy-orchestration/deploy_orchestration.py {env} "$override"
+          sudo -u deploy python3 -m scripts.helpers.deploy-orchestration.deploy_orchestration {env} "$override"
           sudo -u deploy docker compose "$@" -f "$override"{profile} pull
           sudo -u deploy docker compose "$@" -f "$override"{profile} up -d'''
           print(json.dumps({"commands": [ready, "sudo -u deploy git -C /home/deploy/app pull --ff-only origin main", deploy]}))
