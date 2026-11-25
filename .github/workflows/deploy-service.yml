@@ -14,8 +14,7 @@ on:
         required: true
       from_environment:
         description: "Copy the deployed image tag from this environment"
-        type: choice
-        options: [beta]
+        type: string
         required: false
       image_tag:
         description: "Image tag to deploy (e.g. main-abc1234)"
