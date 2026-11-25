@@ -9,3 +9,7 @@ output "instance_id" {
 output "ec2_role_id" {
   value = aws_iam_role.ec2.id
 }
+
+output "instance_role_name" {
+  value = aws_iam_role.ec2.name
+}
