@@ -287,10 +287,25 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  approve:
+    name: Approve production deploy
+    needs: [prepare, plan]
+    if: needs.prepare.outputs.to_environment == 'prd' && needs.prepare.outputs.dry_run == 'false'
+    runs-on: ubuntu-latest
+    environment: ${{ needs.prepare.outputs.to_environment }}
+    steps:
+      - name: Approval gate
+        run: echo "Production deploy approved"
+
   deploy:
     name: Deploy ${{ matrix.service }} (${{ needs.prepare.outputs.to_environment }})
-    needs: [prepare, plan]
-    if: needs.prepare.outputs.dry_run == 'false'
+    needs: [prepare, plan, approve]
+    if: >-
+      always() &&
+      needs.prepare.result == 'success' &&
+      needs.plan.result == 'success' &&
+      needs.prepare.outputs.dry_run == 'false' &&
+      (needs.approve.result == 'success' || needs.approve.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       id-token: write

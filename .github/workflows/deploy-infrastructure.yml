@@ -9,10 +9,6 @@ on:
         options: [beta, prd]
         default: beta
         required: true
-      deploy_orchestration:
-        description: "Deploy orchestration"
-        type: boolean
-        default: true
 
 concurrency:
   group: terraform-${{ inputs.environment }}
@@ -147,41 +143,6 @@ jobs:
 
       - name: Terraform apply
         run: terraform apply tfplan
-
-      - name: Verify shared secrets are populated
-        if: ${{ inputs.deploy_orchestration }}
-        env:
-          AWS_REGION: ${{ env.AWS_REGION }}
-        run: |
-          while IFS= read -r secret_name; do
-            [ -n "${secret_name}" ] || continue
-            parameter_name="/portfolio/${ENVIRONMENT}/secret/${secret_name}"
-            value=$(aws ssm get-parameter \
-              --name "${parameter_name}" \
-              --with-decryption \
-              --query 'Parameter.Value' \
-              --output text) || {
-                echo "Missing SSM parameter: ${parameter_name}" >&2
-                exit 1
-              }
-            if [ -z "${value}" ] || [ "${value}" = "None" ] || [ "${value}" = "placeholder" ]; then
-              echo "SSM parameter is not populated: ${parameter_name}" >&2
-              exit 1
-            fi
-          done < <(ruby -ryaml -e 'YAML.load_file("../../config/secrets.yml").each_key { |key| puts key }')
-
-      - name: Trigger orchestration deployment
-        if: ${{ inputs.deploy_orchestration }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REF_NAME: ${{ github.ref_name }}
-        run: |
-          gh api \
-            --method POST \
-            "repos/${GITHUB_REPOSITORY}/actions/workflows/deploy-orchestration.yml/dispatches" \
-            -f "ref=${REF_NAME}" \
-            -f "inputs[environment]=${ENVIRONMENT}" \
-            -f "inputs[dry_run]=false"
 
   apply-ssm:
     name: Apply SSM (${{ inputs.environment }})
