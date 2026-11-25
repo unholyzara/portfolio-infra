@@ -233,7 +233,7 @@ jobs:
             --arg prd "${IS_PRD}" \
             '{commands: ([
               "set -euo pipefail",
-              "install -d /opt/portfolio/scripts",
+              "install -d /opt/portfolio/orchestration/scripts",
               "echo \($b64) | base64 -d | gunzip > /opt/portfolio/orchestration/scripts/certs.sh",
               "chmod +x /opt/portfolio/orchestration/scripts/certs.sh",
               "export DOMAIN=\($domain) ENVIRONMENT=\($env) CERT_BUCKET=\($bucket) LETSENCRYPT_EMAIL=\($email) AWS_REGION=\($region)",
