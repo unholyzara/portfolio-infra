@@ -22,7 +22,7 @@ if [[ -z "$ADMIN_USER" || -z "$ADMIN_PASS" ]]; then
     exit 1
 fi
 
-docker compose "${compose_args[@]}" run --rm -T \
+docker compose "${compose_args[@]}" exec -T \
     -e "DJANGO_SUPERUSER_USERNAME=${ADMIN_USER}" \
     -e "DJANGO_SUPERUSER_PASSWORD=${ADMIN_PASS}" \
     -e "DJANGO_SUPERUSER_EMAIL=${ADMIN_EMAIL}" \
