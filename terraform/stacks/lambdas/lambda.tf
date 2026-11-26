@@ -3,7 +3,7 @@ module "lambda" {
 
   project_name  = var.project_name
   environment   = var.environment
-  function_name = "${var.project_name}-${var.service}-lmb"
+  function_name = "${var.project_name}-${var.service}"
   image_uri     = local.image_uri
 
   permissions_policy_json = jsonencode({
