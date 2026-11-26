@@ -1,6 +1,4 @@
 resource "aws_iam_role" "scheduler" {
-  count = length(data.aws_lambda_function.backup_lambda)
-
   name = "${local.prefix}-scheduler"
 
   assume_role_policy = jsonencode({
@@ -14,17 +12,15 @@ resource "aws_iam_role" "scheduler" {
 }
 
 resource "aws_iam_role_policy" "scheduler" {
-  count = length(data.aws_lambda_function.backup_lambda)
-
   name = "${local.prefix}-scheduler-invoke"
-  role = aws_iam_role.scheduler[0].id
+  role = aws_iam_role.scheduler.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
       Effect   = "Allow"
       Action   = "lambda:InvokeFunction"
-      Resource = data.aws_lambda_function.backup_lambda[0].arn
+      Resource = data.aws_lambda_function.backup_lambda.arn
     }]
   })
 }
