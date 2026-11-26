@@ -27,8 +27,8 @@ on:
 
 env:
   AWS_REGION: eu-south-1
-  # Keep aligned with deploy-infrastructure.yml
-  TF_VERSION: "~1.6.0"
+  # Keep aligned with the other Terraform workflows
+  TF_VERSION: "~1.15"
   STACK_DIR: terraform/stacks/lambdas
   COMMON_VARS: terraform/environments/common.tfvars
   ENV_VARS_DIR: terraform/environments
