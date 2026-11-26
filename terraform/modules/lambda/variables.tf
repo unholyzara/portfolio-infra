@@ -4,7 +4,8 @@ variable "environment" {
 }
 
 variable "project_name" {
-  type = string
+  description = "Project name, used as a prefix for resource names."
+  type        = string
 }
 
 variable "function_name" {
@@ -110,6 +111,7 @@ variable "tags" {
 }
 
 variable "ssm_parameters" {
+  description = "SSM parameters the function can read, keyed by the name of the environment variable that exposes the parameter name."
   type = map(object({
     name : string
     arn : string
