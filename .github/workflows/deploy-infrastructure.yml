@@ -64,47 +64,48 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  plan-persistent:
-    name: Plan Persistent (${{ inputs.environment }})
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: terraform/stacks/persistent
-    steps:
-      - uses: actions/checkout@v4
+  # plan-persistent:
+  #   name: Plan Persistent (${{ inputs.environment }})
+  #   runs-on: ubuntu-latest
+  #   defaults:
+  #     run:
+  #       working-directory: terraform/stacks/persistent
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_BOOTSTRAP_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+  #     - name: Configure AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         role-to-assume: ${{ secrets.AWS_BOOTSTRAP_ROLE_ARN }}
+  #         aws-region: ${{ env.AWS_REGION }}
 
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "~1.6"
+  #     - uses: hashicorp/setup-terraform@v3
+  #       with:
+  #         terraform_version: "~1.6"
 
-      - name: Terraform init
-        run: terraform init -backend-config="key=persistent/${ENVIRONMENT}/terraform.tfstate"
+  #     - name: Terraform init
+  #       run: terraform init -backend-config="key=persistent/${ENVIRONMENT}/terraform.tfstate"
 
-      - name: Terraform plan
-        run: |
-          terraform plan -out=tfplan \
-            -var-file="../vars/common.tfvars" \
-            -var-file="../vars/${ENVIRONMENT}.tfvars" \
-            -var-file="vars/common.tfvars" \
-            -var-file="vars/${ENVIRONMENT}.tfvars"
+  #     - name: Terraform plan
+  #       run: |
+  #         terraform plan -out=tfplan \
+  #           -var-file="../vars/common.tfvars" \
+  #           -var-file="../vars/${ENVIRONMENT}.tfvars" \
+  #           -var-file="vars/common.tfvars" \
+  #           -var-file="vars/${ENVIRONMENT}.tfvars"
 
-      - name: Upload Persistent plan
-        uses: actions/upload-artifact@v4
-        with:
-          name: persistent-plan-${{ inputs.environment }}
-          path: terraform/stacks/persistent/tfplan
-          if-no-files-found: error
-          retention-days: 1
+  #     - name: Upload Persistent plan
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: persistent-plan-${{ inputs.environment }}
+  #         path: terraform/stacks/persistent/tfplan
+  #         if-no-files-found: error
+  #         retention-days: 1
 
   approve-plans:
     name: Approve Terraform plans
-    needs: [plan-infrastructure, plan-persistent]
+    # needs: [plan-infrastructure, plan-persistent]
+    needs: [plan-infrastructure,]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: ${{ inputs.environment }}
@@ -148,40 +149,42 @@ jobs:
       - name: Terraform apply
         run: terraform apply tfplan
 
-  apply-persistent:
-    name: Apply Persistent (${{ inputs.environment }})
-    needs: [approve-plans]
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: terraform/stacks/persistent
-    steps:
-      - uses: actions/checkout@v4
+  # apply-persistent:
+  #   name: Apply Persistent (${{ inputs.environment }})
+  #   needs: [approve-plans]
+  #   runs-on: ubuntu-latest
+  #   defaults:
+  #     run:
+  #       working-directory: terraform/stacks/persistent
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_BOOTSTRAP_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+  #     - name: Configure AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         role-to-assume: ${{ secrets.AWS_BOOTSTRAP_ROLE_ARN }}
+  #         aws-region: ${{ env.AWS_REGION }}
 
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "~1.6"
+  #     - uses: hashicorp/setup-terraform@v3
+  #       with:
+  #         terraform_version: "~1.6"
 
-      - name: Terraform init
-        run: terraform init -backend-config="key=persistent/${ENVIRONMENT}/terraform.tfstate"
+  #     - name: Terraform init
+  #       run: terraform init -backend-config="key=persistent/${ENVIRONMENT}/terraform.tfstate"
 
-      - name: Download Persistent plan
-        uses: actions/download-artifact@v4
-        with:
-          name: persistent-plan-${{ inputs.environment }}
-          path: terraform/stacks/persistent
+  #     - name: Download Persistent plan
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: persistent-plan-${{ inputs.environment }}
+  #         path: terraform/stacks/persistent
 
-      - name: Terraform apply
-        run: terraform apply tfplan
+  #     - name: Terraform apply
+  #       run: terraform apply tfplan
+  
   ensure-cert:
     name: Ensure TLS certificate (${{ inputs.environment }})
-    needs: [apply-infrastructure, apply-persistent]
+    # needs: [apply-infrastructure, apply-persistent]
+    needs: [apply-infrastructure,]
     runs-on: ubuntu-latest
     defaults:
       run:
