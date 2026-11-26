@@ -30,8 +30,6 @@ env:
   # Keep aligned with the other Terraform workflows
   TF_VERSION: "~1.15"
   STACK_DIR: terraform/stacks/lambdas
-  COMMON_VARS: terraform/environments/common.tfvars
-  ENV_VARS_DIR: terraform/environments
 
 jobs:
   prepare:
@@ -188,14 +186,7 @@ jobs:
           TO_ENVIRONMENT: ${{ needs.prepare.outputs.to_environment }}
           IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
         run: |
-          ROOT="${GITHUB_WORKSPACE}"
-          VAR_FILES=()
-          for f in "${ROOT}/${COMMON_VARS}" "${ROOT}/${ENV_VARS_DIR}/${TO_ENVIRONMENT}.tfvars"; do
-            [ -f "$f" ] && VAR_FILES+=("-var-file=$f")
-          done
-
           terraform plan -input=false -out=tfplan \
-            "${VAR_FILES[@]}" \
             -var "service=${SERVICE}" \
             -var "image_tag=${IMAGE_TAG}"
             -var-file="../vars/common.tfvars" \
