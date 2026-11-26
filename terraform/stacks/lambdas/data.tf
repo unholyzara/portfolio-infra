@@ -35,7 +35,7 @@ data "aws_ecr_repository" "this" {
 }
 
 data "aws_s3_bucket" "backup" {
-  bucket = data.terraform_remote_state.persistent.outputs.backup_bucket_name
+  bucket = data.terraform_remote_state.persistent.outputs.backup_buckets[var.service].name
 }
 
 data "aws_ssm_parameter" "this" {
