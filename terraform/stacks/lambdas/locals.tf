@@ -14,7 +14,7 @@ locals {
   lambda_secrets_file = yamldecode(file("${local.service_dir}/secrets.yml"))
   ssm_parameters = {
     for env_var, ssm_name in local.lambda_secrets_file :
-    env_var => { env_var : data.aws_ssm_parameter.this[ssm_name] }
+    env_var => data.aws_ssm_parameter.this[ssm_name]
   }
 
   lambda_policies = local.lambda_customs == null ? [] : local.lambda_customs.policies
