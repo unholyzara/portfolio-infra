@@ -43,7 +43,7 @@ resource "aws_iam_role_policy" "ssm_access" {
     Statement = [{
       Effect = "Allow"
       Action = [
-        "secretsmanager:GetSecretValue"
+        "ssm:GetParameter"
       ]
       Resource = [for key, ssm_parameter in var.ssm_parameters : ssm_parameter.arn]
     }]
