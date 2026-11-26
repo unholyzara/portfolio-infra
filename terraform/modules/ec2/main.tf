@@ -28,6 +28,12 @@ resource "aws_spot_instance_request" "main" {
   spot_type                      = "persistent"
   instance_interruption_behavior = "stop"
 
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
+  }
+
   root_block_device {
     volume_type           = "gp3"
     volume_size           = 20
