@@ -61,7 +61,6 @@ jobs:
           env = os.environ["ENVIRONMENT"]
           root = "/home/deploy/app/orchestration"
           ready = "for i in $(seq 1 120); do [ -f /home/deploy/app/orchestration/.env ] && [ \"$(stat -c %U /home/deploy/app/orchestration/.env)\" = deploy ] && systemctl is-active --quiet docker && break; sleep 5; done; [ -f /home/deploy/app/orchestration/.env ] && [ \"$(stat -c %U /home/deploy/app/orchestration/.env)\" = deploy ] && systemctl is-active --quiet docker || { echo \"EC2 bootstrap did not finish\" >&2; exit 1; }"
-          profile = " --profile monitoring" if env == "prd" else ""
           deploy = f'''set -e
           cd {root}
           override=$(sudo -u deploy mktemp)
@@ -72,8 +71,8 @@ jobs:
             set -- "$@" -f "$file"
           done
           sudo -u deploy python3 -m scripts.helpers.deploy-orchestration.deploy_orchestration {env} "$override"
-          sudo -u deploy docker compose "$@" -f "$override"{profile} pull
-          sudo -u deploy docker compose "$@" -f "$override"{profile} up -d'''
+          sudo -u deploy docker compose "$@" -f "$override" pull
+          sudo -u deploy docker compose "$@" -f "$override" up -d'''
           print(json.dumps({"commands": [ready, "sudo -u deploy git -C /home/deploy/app pull --ff-only origin main", deploy]}))
           PY
           )

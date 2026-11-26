@@ -1,7 +1,0 @@
-repository-info:
-  deployable: false
-subdomain: grafana
-diagram:
-  kind: monitoring
-  stack: Grafana
-  public: [ grafana.mattiazaramella.dev ]
