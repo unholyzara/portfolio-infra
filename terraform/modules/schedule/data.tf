@@ -1,6 +1,3 @@
-data "aws_lambda_functions" "available" {
-}
+data "aws_caller_identity" "current" {}
 
-data "aws_lambda_function" "backup_lambda" {
-  function_name = local.scheduled_lambda_function_name
-}
+data "aws_region" "current" {}

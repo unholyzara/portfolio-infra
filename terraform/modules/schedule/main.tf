@@ -8,7 +8,7 @@ resource "aws_scheduler_schedule" "backup" {
   }
 
   target {
-    arn      = data.aws_lambda_function.backup_lambda.arn
+    arn      = local.scheduled_lambda_arn
     role_arn = aws_iam_role.scheduler.arn
   }
 }

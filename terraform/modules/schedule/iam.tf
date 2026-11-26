@@ -20,7 +20,7 @@ resource "aws_iam_role_policy" "scheduler" {
     Statement = [{
       Effect   = "Allow"
       Action   = "lambda:InvokeFunction"
-      Resource = data.aws_lambda_function.backup_lambda.arn
+      Resource = local.scheduled_lambda_arn
     }]
   })
 }
