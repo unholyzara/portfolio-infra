@@ -62,15 +62,26 @@ git clone --filter=blob:none --sparse \
 git sparse-checkout set orchestration services
 chown -R deploy:deploy $APP_DIR
 
+read_deploy_tag() {
+  local tag
+  tag=$(aws ssm get-parameter --region ${aws_region} \
+    --name "/${project_name}/${environment}/deploy/$1" \
+    --query Parameter.Value --output text 2>/dev/null || true)
+  if [[ "$tag" =~ ^[A-Za-z0-9._-]+$ && "$tag" != "None" ]]; then
+    echo "$tag"
+  else
+    echo "main-latest"
+  fi
+}
+
 cat > $COMPOSE_DIR/.env << ENVFILE
 ENVIRONMENT=${environment}
 AWS_REGION=${aws_region}
 PROJECT_NAME=${project_name}
 ECR_REGISTRY=${ecr_registry}
-FRONTEND_TAG=main-latest
-ADMIN_TAG=main-latest
-API_TAG=main-latest
-CV_TAG=main-latest
+FRONTEND_TAG=$(read_deploy_tag frontend)
+ADMIN_TAG=$(read_deploy_tag admin)
+API_TAG=$(read_deploy_tag api)
 ENVFILE
 
 %{ if environment == "prd" ~}
