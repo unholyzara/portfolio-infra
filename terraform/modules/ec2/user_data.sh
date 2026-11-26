@@ -37,10 +37,14 @@ systemctl start docker
 systemctl enable --now crond
 
 DOCKER_COMPOSE_VERSION="2.27.0"
+DOCKER_COMPOSE_BASE="https://github.com/docker/compose/releases/download/v$${DOCKER_COMPOSE_VERSION}"
+DOCKER_COMPOSE_BINARY="docker-compose-linux-aarch64"
+curl -fsSL -o "/tmp/$${DOCKER_COMPOSE_BINARY}" "$${DOCKER_COMPOSE_BASE}/$${DOCKER_COMPOSE_BINARY}"
+curl -fsSL -o "/tmp/$${DOCKER_COMPOSE_BINARY}.sha256" "$${DOCKER_COMPOSE_BASE}/$${DOCKER_COMPOSE_BINARY}.sha256"
+(cd /tmp && sha256sum -c "$${DOCKER_COMPOSE_BINARY}.sha256")
 mkdir -p /usr/local/lib/docker/cli-plugins
-curl -fSL "https://github.com/docker/compose/releases/download/v$${DOCKER_COMPOSE_VERSION}/docker-compose-linux-aarch64" \
-  -o /usr/local/lib/docker/cli-plugins/docker-compose
-chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+install -m 0755 "/tmp/$${DOCKER_COMPOSE_BINARY}" /usr/local/lib/docker/cli-plugins/docker-compose
+rm -f "/tmp/$${DOCKER_COMPOSE_BINARY}" "/tmp/$${DOCKER_COMPOSE_BINARY}.sha256"
 
 useradd -m -s /bin/bash deploy
 usermod -aG docker deploy
