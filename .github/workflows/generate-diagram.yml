@@ -66,8 +66,6 @@ jobs:
             -out=tfplan \
             -var-file=../vars/common.tfvars \
             -var-file=../vars/prd.tfvars \
-            -var-file="vars/common.tfvars" \
-            -var-file="vars/prd.tfvars"
 
           terraform graph -plan=tfplan > terraform.dot
           terraform show -json tfplan > terraform-plan.json

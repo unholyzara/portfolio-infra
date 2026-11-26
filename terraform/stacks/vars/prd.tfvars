@@ -1,2 +1,3 @@
-environment = "prd"
-autodestroy = false
+environment   = "prd"
+autodestroy   = false
+instance_type = "t4g.small"

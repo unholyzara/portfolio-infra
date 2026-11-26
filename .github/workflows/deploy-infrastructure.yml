@@ -53,8 +53,6 @@ jobs:
           terraform plan -out=tfplan \
             -var-file="../vars/common.tfvars" \
             -var-file="../vars/${ENVIRONMENT}.tfvars" \
-            -var-file="vars/common.tfvars" \
-            -var-file="vars/${ENVIRONMENT}.tfvars"
 
       - name: Upload infrastructure plan
         uses: actions/upload-artifact@v4
@@ -91,8 +89,6 @@ jobs:
           terraform plan -out=tfplan \
             -var-file="../vars/common.tfvars" \
             -var-file="../vars/${ENVIRONMENT}.tfvars" \
-            -var-file="vars/common.tfvars" \
-            -var-file="vars/${ENVIRONMENT}.tfvars"
 
       - name: Upload Persistent plan
         uses: actions/upload-artifact@v4
