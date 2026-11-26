@@ -188,7 +188,7 @@ jobs:
         run: |
           terraform plan -input=false -out=tfplan \
             -var "service=${SERVICE}" \
-            -var "image_tag=${IMAGE_TAG}"
+            -var "image_tag=${IMAGE_TAG}" \
             -var-file="../vars/common.tfvars" \
             -var-file="../vars/${ENVIRONMENT}.tfvars"
 
