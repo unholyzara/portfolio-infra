@@ -47,5 +47,6 @@ jobs:
       - name: Terraform destroy
         run: |
           terraform destroy -auto-approve \
-            -var-file=../common.tfvars \
+            -var-file=../vars/common.tfvars \
+            -var-file=../vars/${ENVIRONMENT}.tfvars \
             -var-file="vars/${ENVIRONMENT}.tfvars"
