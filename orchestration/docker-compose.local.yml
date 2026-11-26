@@ -8,7 +8,7 @@ services:
       - "443:443"
       - "8000:8000"
     volumes:
-      - ./nginx/nginx.local.conf:/etc/nginx/nginx.conf:ro
+      - ../services/nginx/nginx.local.conf:/etc/nginx/nginx.conf:ro
       - certbot-certs:/etc/letsencrypt:ro
       - ./diagram:/usr/share/nginx/diagram:ro
     depends_on:

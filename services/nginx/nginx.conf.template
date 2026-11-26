@@ -21,10 +21,8 @@ http {
     server {
         listen 80;
         server_name
-            mattiazaramella.dev
-            www.mattiazaramella.dev
-            beta.mattiazaramella.dev
-            www.beta.mattiazaramella.dev;
+            ${BASE_DOMAIN}
+            www.${BASE_DOMAIN};
 
         location / {
             return 301 https://$host$request_uri;
@@ -34,16 +32,10 @@ http {
     server {
         listen 443 ssl;
         server_name
-            mattiazaramella.dev
-            www.mattiazaramella.dev
-            beta.mattiazaramella.dev
-            www.beta.mattiazaramella.dev;
+            ${BASE_DOMAIN}
+            www.${BASE_DOMAIN};
 
-        ssl_certificate     /etc/letsencrypt/live/portfolio/fullchain.pem;
-        ssl_certificate_key /etc/letsencrypt/live/portfolio/privkey.pem;
-
-        ssl_protocols       TLSv1.2 TLSv1.3;
-        ssl_ciphers         HIGH:!aNULL:!MD5;
+        include /etc/nginx/ssl.conf;
 
         set $frontend_upstream http://frontend:80;
         set $api_upstream      http://api:8000;
@@ -90,13 +82,9 @@ http {
 
     server {
         listen 443 ssl;
-        server_name admin.mattiazaramella.dev admin.beta.mattiazaramella.dev;
+        server_name admin.${BASE_DOMAIN};
 
-        ssl_certificate     /etc/letsencrypt/live/portfolio/fullchain.pem;
-        ssl_certificate_key /etc/letsencrypt/live/portfolio/privkey.pem;
-
-        ssl_protocols       TLSv1.2 TLSv1.3;
-        ssl_ciphers         HIGH:!aNULL:!MD5;
+        include /etc/nginx/ssl.conf;
 
         set $admin_upstream http://admin:80;
         set $api_upstream   http://api:8000;
@@ -123,13 +111,9 @@ http {
 
     server {
         listen 443 ssl;
-        server_name grafana.mattiazaramella.dev grafana.beta.mattiazaramella.dev;
+        server_name grafana.${BASE_DOMAIN};
 
-        ssl_certificate     /etc/letsencrypt/live/portfolio/fullchain.pem;
-        ssl_certificate_key /etc/letsencrypt/live/portfolio/privkey.pem;
-
-        ssl_protocols       TLSv1.2 TLSv1.3;
-        ssl_ciphers         HIGH:!aNULL:!MD5;
+        include /etc/nginx/ssl.conf;
 
         set $grafana_upstream http://grafana:3000;
 
