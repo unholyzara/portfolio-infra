@@ -5,7 +5,6 @@ module "backup_bucket" {
 
   environment  = var.environment
   project_name = var.project_name
-  role_id      = data.aws_iam_role.ec2.id
   name         = each.key
   expiration   = 30
 }

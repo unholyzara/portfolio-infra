@@ -7,7 +7,3 @@ data "terraform_remote_state" "infrastructure" {
     region = "eu-south-1"
   }
 }
-
-data "aws_iam_role" "ec2" {
-  name = data.terraform_remote_state.infrastructure.outputs.ec2_role_name
-}
