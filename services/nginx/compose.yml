@@ -11,6 +11,7 @@ services:
     volumes:
       - ../services/nginx/nginx.conf.template:/etc/nginx/templates/nginx.conf.template:ro
       - ../services/nginx/ssl.conf:/etc/nginx/ssl.conf:ro
+      - ../services/nginx/security-headers.conf:/etc/nginx/security-headers.conf:ro
       - ./diagram:/usr/share/nginx/diagram:ro
       - /opt/portfolio/letsencrypt:/etc/letsencrypt:ro
     depends_on:

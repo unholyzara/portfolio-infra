@@ -31,6 +31,7 @@ http {
             www.${BASE_DOMAIN};
 
         include /etc/nginx/ssl.conf;
+        include /etc/nginx/security-headers.conf;
 
         set $frontend_upstream http://frontend:80;
         set $api_upstream      http://api:8000;
@@ -39,6 +40,7 @@ http {
             alias /usr/share/nginx/diagram/architecture.json;
             default_type application/json;
             add_header Cache-Control "public, max-age=300";
+            include /etc/nginx/security-headers.conf;
         }
 
         # Frontend Angular (SPA)
@@ -72,6 +74,7 @@ http {
             proxy_cache_bypass     $http_authorization $cookie_sessionid;
             proxy_no_cache         $http_authorization $cookie_sessionid;
             add_header             X-Cache-Status $upstream_cache_status always;
+            include                /etc/nginx/security-headers.conf;
         }
     }
 
@@ -80,6 +83,7 @@ http {
         server_name admin.${BASE_DOMAIN};
 
         include /etc/nginx/ssl.conf;
+        include /etc/nginx/security-headers.conf;
 
         set $admin_upstream http://admin:80;
         set $api_upstream   http://api:8000;
