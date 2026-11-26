@@ -73,7 +73,7 @@ variable "timeout" {
 variable "memory_size" {
   description = "Amount of memory available to the function, in MB."
   type        = number
-  default     = 1024
+  default     = 128
 
   validation {
     condition     = var.memory_size >= 128 && var.memory_size <= 10240 && floor(var.memory_size) == var.memory_size
