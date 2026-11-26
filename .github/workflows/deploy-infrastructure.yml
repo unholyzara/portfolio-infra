@@ -64,12 +64,12 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  plan-ssm:
-    name: Plan SSM (${{ inputs.environment }})
+  plan-persistent:
+    name: Plan Persistent (${{ inputs.environment }})
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: terraform/stacks/ssm
+        working-directory: terraform/stacks/persistent
     steps:
       - uses: actions/checkout@v4
 
@@ -84,7 +84,7 @@ jobs:
           terraform_version: "~1.6"
 
       - name: Terraform init
-        run: terraform init -backend-config="key=ssm/${ENVIRONMENT}/terraform.tfstate"
+        run: terraform init -backend-config="key=persistent/${ENVIRONMENT}/terraform.tfstate"
 
       - name: Terraform plan
         run: |
@@ -94,17 +94,17 @@ jobs:
             -var-file="vars/common.tfvars" \
             -var-file="vars/${ENVIRONMENT}.tfvars"
 
-      - name: Upload SSM plan
+      - name: Upload Persistent plan
         uses: actions/upload-artifact@v4
         with:
-          name: ssm-plan-${{ inputs.environment }}
-          path: terraform/stacks/ssm/tfplan
+          name: persistent-plan-${{ inputs.environment }}
+          path: terraform/stacks/persistent/tfplan
           if-no-files-found: error
           retention-days: 1
 
   approve-plans:
     name: Approve Terraform plans
-    needs: [plan-infrastructure, plan-ssm]
+    needs: [plan-infrastructure, plan-persistent]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: ${{ inputs.environment }}
@@ -148,13 +148,13 @@ jobs:
       - name: Terraform apply
         run: terraform apply tfplan
 
-  apply-ssm:
-    name: Apply SSM (${{ inputs.environment }})
+  apply-persistent:
+    name: Apply Persistent (${{ inputs.environment }})
     needs: [approve-plans]
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: terraform/stacks/ssm
+        working-directory: terraform/stacks/persistent
     steps:
       - uses: actions/checkout@v4
 
@@ -169,19 +169,19 @@ jobs:
           terraform_version: "~1.6"
 
       - name: Terraform init
-        run: terraform init -backend-config="key=ssm/${ENVIRONMENT}/terraform.tfstate"
+        run: terraform init -backend-config="key=persistent/${ENVIRONMENT}/terraform.tfstate"
 
-      - name: Download SSM plan
+      - name: Download Persistent plan
         uses: actions/download-artifact@v4
         with:
-          name: ssm-plan-${{ inputs.environment }}
-          path: terraform/stacks/ssm
+          name: persistent-plan-${{ inputs.environment }}
+          path: terraform/stacks/persistent
 
       - name: Terraform apply
         run: terraform apply tfplan
   ensure-cert:
     name: Ensure TLS certificate (${{ inputs.environment }})
-    needs: [apply-infrastructure, apply-ssm]
+    needs: [apply-infrastructure, apply-persistent]
     runs-on: ubuntu-latest
     defaults:
       run:

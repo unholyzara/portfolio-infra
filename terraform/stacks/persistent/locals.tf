@@ -11,6 +11,11 @@ locals {
     name => microservice
     if try(microservice["deployable"], false) || try(microservice["backup"], false)
   }
+  backup_lambdas = {
+    for name, lmb in local.services_data :
+    name => lmb
+    if try(lmb["backup"], false)
+  }
 
   shared_secrets_file = yamldecode(file("${path.module}/../../config/secrets.yml"))
   ssm_parameters      = local.shared_secrets_file
