@@ -45,7 +45,7 @@ variable "memory_size" {
 
 variable "ephemeral_storage_size" {
   type    = number
-  default = 128
+  default = 512
 }
 
 variable "log_retention_in_days" {
