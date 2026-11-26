@@ -332,6 +332,7 @@ jobs:
         run: |
           echo "service=$(jq -r .service deployment-plan/plan.json)" >> "$GITHUB_OUTPUT"
           echo "image_tag=$(jq -r .image_tag deployment-plan/plan.json)" >> "$GITHUB_OUTPUT"
+          echo "old_image_tag=$(jq -r .old_image_tag deployment-plan/plan.json)" >> "$GITHUB_OUTPUT"
           echo "instance_id=$(jq -r .instance_id deployment-plan/plan.json)" >> "$GITHUB_OUTPUT"
 
       - name: Checkout portfolio-infra
@@ -348,23 +349,29 @@ jobs:
         env:
           SERVICE: ${{ steps.plan.outputs.service }}
           IMAGE_TAG: ${{ steps.plan.outputs.image_tag }}
+          OLD_IMAGE_TAG: ${{ steps.plan.outputs.old_image_tag }}
           TO_ENVIRONMENT: ${{ needs.prepare.outputs.to_environment }}
           RUN_MIGRATIONS: ${{ needs.prepare.outputs.run_migrations }}
           INSTANCE_ID: ${{ steps.plan.outputs.instance_id }}
         run: |
-          COMMANDS=$(SERVICE="${SERVICE}" TO_ENVIRONMENT="${TO_ENVIRONMENT}" IMAGE_TAG="${IMAGE_TAG}" RUN_MIGRATIONS="${RUN_MIGRATIONS}" python3 - <<'PY'
+          COMMANDS=$(SERVICE="${SERVICE}" TO_ENVIRONMENT="${TO_ENVIRONMENT}" IMAGE_TAG="${IMAGE_TAG}" OLD_IMAGE_TAG="${OLD_IMAGE_TAG}" RUN_MIGRATIONS="${RUN_MIGRATIONS}" python3 - <<'PY'
           import json
           import os
+          import re
+          import sys
 
           service = os.environ["SERVICE"]
           env = os.environ["TO_ENVIRONMENT"]
           tag = os.environ["IMAGE_TAG"]
+          old_tag = os.environ["OLD_IMAGE_TAG"]
           migrate = os.environ["RUN_MIGRATIONS"]
+          if not re.fullmatch(r"[A-Za-z0-9._-]*", old_tag):
+              sys.exit("Invalid previous image tag")
           root = "/home/deploy/app/orchestration"
           deploy = f'''set -e
           cd {root}
           override=$(sudo -u deploy mktemp)
-          trap 'rm -f "$override"' EXIT
+          trap 'rm -f "$override" "$rollback_override"' EXIT
           set -- -f {root}/docker-compose.yml
           for file in /home/deploy/app/services/*/compose.yml; do
             [ -f "$file" ] || continue
@@ -372,7 +379,20 @@ jobs:
           done
           sudo -u deploy python3 -m scripts.helpers.deploy-service.deploy_service {service} {env} {tag} {migrate} "$override"
           sudo -u deploy docker compose "$@" -f "$override" pull {service}
-          sudo -u deploy docker compose "$@" -f "$override" up -d --no-deps {service}'''
+          if ! sudo -u deploy docker compose "$@" -f "$override" up -d --no-deps --wait --wait-timeout 180 {service}; then
+            echo "{service}:{tag} did not become healthy" >&2
+            sudo -u deploy docker compose "$@" -f "$override" logs --tail 50 {service} >&2 || true
+            if [ -n "{old_tag}" ]; then
+              echo "Rolling back {service} to {old_tag}" >&2
+              rollback_override=$(sudo -u deploy mktemp)
+              sudo -u deploy python3 -m scripts.helpers.deploy-service.deploy_service {service} {env} {old_tag} false "$rollback_override"
+              sudo -u deploy docker compose "$@" -f "$rollback_override" up -d --no-deps --wait --wait-timeout 180 {service} \\
+                || echo "Rollback of {service} to {old_tag} did not become healthy" >&2
+            else
+              echo "No previous image tag recorded, rollback skipped" >&2
+            fi
+            exit 1
+          fi'''
           print(json.dumps({"commands": [
               "sudo -u deploy git -C /home/deploy/app pull --ff-only origin main",
               deploy,
