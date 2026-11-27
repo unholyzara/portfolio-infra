@@ -2,7 +2,6 @@ locals {
   customs = {
     backup = {
       env = {
-        AWS_REGION    = data.aws_region.current.name
         BACKUP_BUCKET = data.aws_s3_bucket.backup.bucket
       },
       policies = [
