@@ -52,4 +52,3 @@ jobs:
           terraform destroy -auto-approve \
             -var-file=../vars/common.tfvars \
             -var-file=../vars/${ENVIRONMENT}.tfvars \
-            -var-file="vars/${ENVIRONMENT}.tfvars"
