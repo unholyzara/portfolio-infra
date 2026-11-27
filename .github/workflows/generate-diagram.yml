@@ -82,10 +82,10 @@ jobs:
 
       # Solo infrastructure.json: tfplan e terraform-plan.json possono contenere
       # valori sensibili e non devono diventare artifact.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: infrastructure-output
           path: ${{ env.OUT }}/infrastructure.json
+          archive: false
           retention-days: 1
 
 
@@ -113,10 +113,10 @@ jobs:
             --domain "$DOMAIN" \
             --output "$OUT/services.json"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: compose-output
           path: ${{ env.OUT }}/services.json
+          archive: false
           retention-days: 1
 
 
@@ -141,14 +141,14 @@ jobs:
         with:
           node-version: "22"
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
-          name: compose-output
+          name: services.json
           path: ${{ env.OUT }}
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
-          name: infrastructure-output
+          name: infrastructure.json
           path: ${{ env.OUT }}
 
       - name: Merge architecture
@@ -194,13 +194,10 @@ jobs:
           cat "$OUT/layout_errors.txt"
           exit 1
 
-      # Artifact con UN SOLO percorso: la radice dell'artifact è la cartella del file,
-      # quindi contiene solo architecture.json (con più percorsi la radice diventa
-      # l'antenato comune e il file finisce nel posto sbagliato al download).
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: architecture-final
           path: ${{ env.FINAL }}
+          archive: false
           retention-days: 7
 
       - uses: actions/upload-artifact@v4
@@ -225,9 +222,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
-          name: architecture-final
+          name: architecture.json
           path: ${{ env.FINAL_DIR }}
 
       - name: Commit
