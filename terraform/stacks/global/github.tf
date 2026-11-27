@@ -30,4 +30,5 @@ module "lambda_gh_repository" {
   infra_repo_full_name = "${var.github_org}/${var.infra_repo_name}"
   deploy_service       = each.key
   deploy_workflow      = "deploy-lambda.yml"
+  is_lambda            = true
 }

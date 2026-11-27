@@ -7,6 +7,7 @@ locals {
     "INFRA_REPO_FULL_NAME" = var.infra_repo_full_name,
     "DEPLOY_SERVICE"       = var.deploy_service,
     "DEPLOY_WORKFLOW"      = var.deploy_workflow,
+    "IS_LAMBDA"            = tostring(var.is_lambda),
   }
 
   workflow_templates_dir_path = "${path.module}/../config/templates/workflows"

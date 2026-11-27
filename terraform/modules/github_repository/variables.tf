@@ -37,3 +37,8 @@ variable "deploy_service" {
 variable "deploy_workflow" {
   type = string
 }
+
+variable "is_lambda" {
+  type    = bool
+  default = false
+}
