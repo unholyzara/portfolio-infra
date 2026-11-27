@@ -229,7 +229,7 @@ jobs:
           OLD_IMAGE_TAG: ${{ steps.old-tag.outputs.image_tag }}
           INSTANCE_ID: ${{ steps.ec2.outputs.instance_id }}
         run: |
-          mkdir -p deployment-plan reports
+          mkdir -p deployment-plan
           python3 - <<'PY'
           import json
           import os
@@ -243,8 +243,6 @@ jobs:
                   "instance_id": os.environ["INSTANCE_ID"],
               }, output)
           PY
-          OLD_TAG="${OLD_IMAGE_TAG:-unset}"
-          printf '| %s | `%s` -> `%s` |\n' "${SERVICE}" "${OLD_TAG}" "${IMAGE_TAG}" > "reports/${SERVICE}.md"
 
       - name: Upload deployment plan
         uses: actions/upload-artifact@v4
@@ -254,43 +252,43 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-      - name: Upload image tag report row
-        uses: actions/upload-artifact@v4
-        with:
-          name: service-report-${{ needs.prepare.outputs.to_environment }}-${{ matrix.service }}
-          path: reports/${{ matrix.service }}.md
-          if-no-files-found: error
-          retention-days: 7
-
-  report:
-    name: Service image tag report
-    needs: [prepare, plan]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download image tag report rows
-        uses: actions/download-artifact@v4
-        with:
-          pattern: service-report-${{ needs.prepare.outputs.to_environment }}-*
-          path: report-rows
-          merge-multiple: true
-
-      - name: Build image tag report
+      - name: Report image tag plan
+        env:
+          SERVICE: ${{ matrix.service }}
+          TO_ENVIRONMENT: ${{ needs.prepare.outputs.to_environment }}
+          OLD_IMAGE_TAG: ${{ steps.old-tag.outputs.image_tag }}
+          IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
         run: |
-          {
-            echo "# Image tag changes"
-            echo
-            echo "| Service | Image tag |"
-            echo "| --- | --- |"
-            cat report-rows/*.md
-          } > deployment-report.md
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
 
-      - name: Upload image tag report
-        uses: actions/upload-artifact@v4
-        with:
-          name: service-image-tags-${{ needs.prepare.outputs.to_environment }}
-          path: deployment-report.md
-          if-no-files-found: error
-          retention-days: 7
+          service = os.environ["SERVICE"]
+          environment = os.environ["TO_ENVIRONMENT"]
+          old_tag = os.environ["OLD_IMAGE_TAG"] or "unset"
+          image_tag = os.environ["IMAGE_TAG"]
+
+          def escape_command_data(value):
+              return value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+          def escape_markdown(value):
+              return value.replace("\\", "\\\\").replace("|", "\\|").replace("`", "\\`").replace("\r", " ").replace("\n", " ")
+
+          print(
+              "::notice title=Service image tag plan::"
+              f"{escape_command_data(service)} ({escape_command_data(environment)}): "
+              f"{escape_command_data(old_tag)} -> {escape_command_data(image_tag)}"
+          )
+
+          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as summary:
+              summary.write(
+                  "### Service image tag plan\n\n"
+                  "| Service | Environment | Previous tag | Planned tag |\n"
+                  "| --- | --- | --- | --- |\n"
+                  f"| {escape_markdown(service)} | {escape_markdown(environment)} | "
+                  f"`{escape_markdown(old_tag)}` | `{escape_markdown(image_tag)}` |\n"
+              )
+          PY
 
   approve:
     name: Approve production deploy
