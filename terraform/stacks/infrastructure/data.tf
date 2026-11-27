@@ -11,6 +11,16 @@ data "terraform_remote_state" "global" {
   }
 }
 
+data "terraform_remote_state" "persistent" {
+  backend = "s3"
+
+  config = {
+    bucket = "portfolio-config-terraform-state"
+    key    = "persistent/${var.environment}/terraform.tfstate"
+    region = "eu-south-1"
+  }
+}
+
 data "aws_s3_bucket" "cert_bucket" {
   bucket = data.terraform_remote_state.global.outputs.cert_bucket_name
 }

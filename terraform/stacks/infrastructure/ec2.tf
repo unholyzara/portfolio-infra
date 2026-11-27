@@ -10,4 +10,5 @@ module "ec2" {
   github_org        = var.github_org
   github_repository = var.infra_repo_name
   ecr_registry      = local.ecr_registry
+  backup_bucket_arn = data.terraform_remote_state.persistent.outputs.backup_buckets["backup"].arn
 }

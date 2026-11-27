@@ -3,10 +3,13 @@ locals {
 
   service_dir = "${path.module}/../../../services/${var.service}"
 
-  lambda_env_file = file("${local.service_dir}/envs/${var.environment}.env")
-  lambda_env_map  = { for tuple in regexall("(.*?)=(.*)", local.lambda_env_file) : tuple[0] => tuple[1] }
-  lambda_customs  = try(local.customs[var.service], null)
-  lambda_env      = local.lambda_customs == null ? local.lambda_env_map : merge(local.lambda_env_map, local.lambda_customs.env)
+  lambda_common_env_path = "${local.service_dir}/envs/common.env"
+  lambda_common_env_file = fileexists(local.lambda_common_env_path) ? file(local.lambda_common_env_path) : ""
+  lambda_common_env_map  = { for tuple in regexall("(.*?)=(.*)", local.lambda_common_env_file) : tuple[0] => tuple[1] }
+  lambda_env_file        = file("${local.service_dir}/envs/${var.environment}.env")
+  lambda_env_map         = merge(local.lambda_common_env_map, { for tuple in regexall("(.*?)=(.*)", local.lambda_env_file) : tuple[0] => tuple[1] })
+  lambda_customs         = try(local.customs[var.service], null)
+  lambda_env             = local.lambda_customs == null ? local.lambda_env_map : merge(local.lambda_env_map, local.lambda_customs.env)
 
   shared_secrets_file = yamldecode(file("${path.module}/../../config/secrets.yml"))
   shared_secrets      = local.shared_secrets_file

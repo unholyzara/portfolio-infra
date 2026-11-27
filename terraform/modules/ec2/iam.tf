@@ -53,6 +53,16 @@ resource "aws_iam_role_policy" "ec2" {
           "ssm:GetParametersByPath"
         ]
         Resource = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${var.project_name}/${var.environment}/*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = var.backup_bucket_arn
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
+        Resource = "${var.backup_bucket_arn}/*"
       }
     ]
   })

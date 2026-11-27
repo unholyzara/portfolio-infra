@@ -31,6 +31,11 @@ variable "github_repository" {
   type = string
 }
 
+variable "backup_bucket_arn" {
+  description = "ARN of the S3 bucket holding database backups."
+  type        = string
+}
+
 variable "ecr_registry" {
   description = "ECR registry URL (account_id.dkr.ecr.region.amazonaws.com)."
   type        = string
